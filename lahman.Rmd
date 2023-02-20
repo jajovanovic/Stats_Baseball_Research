@@ -1,0 +1,101 @@
+---
+title: "Lahman"
+output: html_document
+date: ''
+---
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300&family=Source+Sans+Pro&display=swap" rel="stylesheet">
+<style>
+
+body{
+font-family: 'Source Sans Pro', sans-serif;
+}
+
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+```
+
+The **Lahman** package contains several tables with data on pitching, hitting, fielding, and more. This package is updated frequently, so it is possible some tables may change names in a later version. The following references the 10.0-1 version. 
+
+The main tables are:
+- `People` : player names, dates of birth, death, and other biographical info
+- `Batting` : batting statistics 
+  - `battingStats` : calculates batting average (BA) plate appearances (PA), total bases (TB), slugging percentage (SlugPct), on-base percentage (OBP), on-base percentage + slugging (OPS), and batting average on balls in play (BABIP)
+- `Pitching` : pitching statistics 
+- `Fielding` : fielding statistics 
+
+A full list of the tables and their contents can be found in the [documentation](https://cran.r-project.org/web/packages/Lahman/Lahman.pdf).
+
+**type of data available:** summary statistics, broken down season-by-season(by team for `Batting` / `Pitching`, by team _and_ position for `Fielding`)
+FIND A WAY TO REPHRASE - BETTER PLACEMENT
+
+```{r, message=FALSE, warning=FALSE}
+library(Lahman)
+```
+
+
+should have a way to show the variables in each table -> skim would probably be too long, maybe use head?
+
+```{r}
+kable(head(People)) %>% 
+  kable_styling("striped") %>% 
+  scroll_box(width = "100%")
+```
+
+should we do this for each of the four major tables?
+
+```{r, fig.align='center'}
+Batting %>% 
+  group_by(yearID) %>% 
+  summarize(totalHR = sum(HR)) %>% 
+  filter(yearID >= 1996) %>% 
+  ggplot(aes(x = yearID, y = totalHR, fill = factor(yearID))) +
+  geom_col() +
+  labs(x = "Year", y = "Total HRs") +
+  theme_bw() +
+  theme(legend.position = "none")
+```
+
+
+```{r, fig.align='center'}
+Pitching %>% 
+  group_by(yearID) %>% 
+  filter(yearID >= 1921, !is.na(ERA)) %>% 
+  summarize(avgERA = mean(ERA)) %>% 
+  ggplot(aes(x = yearID, y = avgERA)) + 
+  geom_line(size = 1, color = "dodgerblue") +
+  labs(title = "Average ERA in the last 100 years",
+       x = "Year", y = "Average ERA") +
+  theme_bw()
+```
+
+
+what graph for Fielding?
+
+```{r, fig.align='center'}
+Fielding %>% 
+  filter(yearID >= 2012) %>% 
+  ggplot(aes(x = factor(POS), y = DP)) +
+  geom_jitter(alpha = 0.4, aes(color = factor(yearID)), 
+              position = position_jitter(0.2)) +
+  labs(title = "The Number of Double Plays by Position", 
+       x = "Position", y = "Double Plays", color = "Year") +
+  theme_bw()
+```
+
+
+_Notes_
+
+- include the salary table?
+- what visualizations should be included?
+- am I allowed to say "you" or "we"?

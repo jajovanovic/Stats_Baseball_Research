@@ -1,0 +1,126 @@
+---
+title: "FanGraphs"
+output: html_document
+date: ''
+---
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300&family=Source+Sans+Pro&display=swap" rel="stylesheet">
+<style>
+
+body{
+font-family: 'Source Sans Pro', sans-serif;
+}
+
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(readr)
+library(knitr)
+library(kableExtra)
+```
+
+**type of data available:** game-by-game, summary statistics (split by Batting, Pitching, and Fielding)
+
+There are two ways to use data from FanGraphs in R:
+
+1.  Downloading the data directly from <https://www.fangraphs.com/> and importing it into R
+1.  Using the **baseballr** package
+
+## FanGraphs Website
+
+The 'Leaders' and 'Teams' pages will both bring up a dashboard that can easily be downloaded. The data is very customizable. There are several tabs that will show different sets of data. And at the bottom of the page there is an option to select which variables to include in order to make a fully custom report. In the top right corner of the table it says "Export Data". The data will download as a CSV file. 
+
+QUESTION: do I have to go into detail about how to load data into R?
+
+The file I chose to download is the 2022 Team Batting Stats.
+
+```{r, message=FALSE, warning=FALSE}
+fg_download <- read_csv("FanGraphs Leaderboard.csv")
+```
+
+```{r}
+kable(fg_download) %>% 
+  kable_styling("striped") %>% 
+  scroll_box(width = "100%", height = "300px")
+```
+
+There are a few important things to note about the data. The variables representing walk rate and strikeout rate have '%' in the column name and in the data values. This is not ideal. Those column names must be placed in backticks ` ` whenever referenced because of the special character. Another option is to change the name using a function like `rename()`. To fix the data values use the function `substr()`. After that make the variables numeric instead of character.
+
+```{r}
+# renaming the columns
+fg_update <- fg_download %>% rename(BB_rate = `BB%`)
+fg_update <- fg_update %>% rename(K_rate = `K%`)
+
+# fixing the data values
+fg_update$BB_rate <- substr(fg_update$BB_rate, 0, nchar(fg_update$BB_rate)-1)
+fg_update$K_rate <- substr(fg_update$K_rate, 0, nchar(fg_update$K_rate)-1)
+
+# make the variables numeric
+fg_update$BB_rate <- as.numeric(fg_update$BB_rate)
+fg_update$K_rate <- as.numeric(fg_update$K_rate)
+```
+
+Since some of the original walk rate values were four elements (like 9.7%) and some were five elements (10.0%), the function `nchar()` was used. It counts the number of element in a character variable. Using that and subtracting one made sure that only the '%' would be cut from each observation. Since the data set is small it is easy to see that all the values of strikeout rate have five elements. So technically `substr(fg_update$K_rate, 0, 4)` would work, but `nchar()-1` is more universal.
+
+```{r, fig.align='center'}
+fg_update %>% 
+  ggplot(aes(x = BB_rate, y = K_rate, color = Team)) + 
+  geom_point() +
+  scale_color_viridis_d() +
+  labs(title = "K% and BB% For Each MLB Team", x = "Walk Rate(%)", y = "Strikeout Rate(%)") +
+  theme_bw()
+```
+
+
+## baseballr
+
+There are functions to action game logs, leaderboards, and park factors. The game logs and leaderboards each have separate functions for pitchers and for hitters. 
+
+```{r, message=FALSE, warning=FALSE}
+library(baseballr)
+```
+
+
+#### Game Logs
+To access game logs for pitchers: `fg_pitcher_game_logs()`
+To access game logs for batters: `fg_batter_game_logs()`
+To access Minor League data: `fg_milb_pitcher_game_logs()` , `fg_milb_batter_game_logs()`
+
+Both of these functions require input of 'playerid' and 'year'. To find a player's playerid search them on the [FanGraphs](https://www.fangraphs.com/) website. The playerid is the numbers after the player's name in the URL. For example, to find Aaron Judge's playerid look at his page: <https://www.fangraphs.com/players/aaron-judge/15640/stats?position=OF>. Aaron Judge's player id is 15640.
+
+```{r}
+judge <- fg_batter_game_logs(playerid = 15640, year = 2021)
+```
+
+This produces a data frame with 245 variables. Each row is a different is a different day within the 2021 season.
+
+#### Leaderboards
+To access leaderboards for pitchers: `fg_pitcher_leaders()`
+To access leaderboards for pitchers: `fg_batter_leaders()`
+
+The arguments are 'x' for the first season of interest, 'y' for the last season of interest, 'league', and 'pitcher_type' ("sta" for starts, "rel" for relievers, "pit" for all pitchers).
+
+```{r, message=FALSE, warning=FALSE}
+pitch_leaders <- fg_pitch_leaders(x = 2020, y = 2022)
+```
+
+The resulting data frame has 303 variables. 
+
+[Here](https://billpetti.github.io/baseballr/reference/fangraphs.html) is the page with all of the FanGraphs functions in **baseballr**
+
+
+
+_Notes_
+
+- I'm not sure what the 'qual' or 'ind' arguments are - since they are not required is it fine to not talk about them?
+- I don't know what the park factors are
+- There are so many variables in the baseballr data frames so I didn't know what visualizations to make
+
+PROS AND CONS
