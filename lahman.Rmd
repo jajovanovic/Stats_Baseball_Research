@@ -25,34 +25,127 @@ library(knitr)
 library(kableExtra)
 ```
 
-The **Lahman** package contains several tables with data on pitching, hitting, fielding, and more. This package is updated frequently, so it is possible some tables may change names in a later version. The following references the 10.0-1 version. 
+The **Lahman** package contains several tables with data on pitching, hitting, fielding, and more. This package is updated with each season. The following references the 10.0-1 version. 
+
+**type of data available:** season-by-season, broken down by team for `Batting` / `Pitching` (so if a player played on multiple teams in one season, each team as their own row), broken down by team _and_ position for `Fielding`
+
+broken down by team for players that changed teams during a season and position for fielding (find a way to illustrate this tables) WORK ON!!!!!
 
 The main tables are:
+
 - `People` : player names, dates of birth, death, and other biographical info
 - `Batting` : batting statistics 
   - `battingStats` : calculates batting average (BA) plate appearances (PA), total bases (TB), slugging percentage (SlugPct), on-base percentage (OBP), on-base percentage + slugging (OPS), and batting average on balls in play (BABIP)
 - `Pitching` : pitching statistics 
 - `Fielding` : fielding statistics 
+- `Salaries` : player name, year, team, league, and salary (from 1985-2016)
+- `Teams` : overall season statistics
+- Additional tables cover information such as All Star appearances, post season data, managers, Hall of Fame voting, awards, parks, and colleges.
 
 A full list of the tables and their contents can be found in the [documentation](https://cran.r-project.org/web/packages/Lahman/Lahman.pdf).
 
-**type of data available:** summary statistics, broken down season-by-season(by team for `Batting` / `Pitching`, by team _and_ position for `Fielding`)
-FIND A WAY TO REPHRASE - BETTER PLACEMENT
 
 ```{r, message=FALSE, warning=FALSE}
 library(Lahman)
 ```
 
 
-should have a way to show the variables in each table -> skim would probably be too long, maybe use head?
-
+#### People
 ```{r}
-kable(head(People)) %>% 
+People %>% 
+  sample_n(6) %>% 
+  kable() %>% 
   kable_styling("striped") %>% 
+  #column_spec(column = 6, width = "125px") %>% 
   scroll_box(width = "100%")
 ```
 
-should we do this for each of the four major tables?
+?: is there a way to make the text not wrap (without having to individually adjust every column width)? 
+
+
+#### Batting 
+Example: **José Iglesias**
+```{r}
+# People %>% filter(nameFirst == "Mookie", nameLast == "Betts")
+# People %>% filter(nameFirst == "Jose", nameLast == "Iglesias")
+
+iglesias <- Batting %>% 
+  filter(playerID == "iglesjo01") %>% 
+  arrange(desc(yearID))
+
+kable(iglesias) %>% 
+  kable_styling("striped") %>% 
+  row_spec(1:2, background = "skyblue") %>% 
+  row_spec(9:10, background = "lightseagreen") %>% 
+  scroll_box(height = "300px")
+```
+
+
+`battingStats()` produces a data frame with the same variables as `Batting`, and additionally calculates some statistics (as mentioned above). 
+
+```{r}
+iglesias_stats <- battingStats(iglesias) %>% 
+  dplyr::select(playerID, yearID, teamID, BA:BABIP)
+
+kable(iglesias_stats) %>% 
+  kable_styling("striped") %>% 
+  row_spec(1:2, background = "skyblue") %>% 
+  row_spec(9:10, background = "lightseagreen") %>% 
+  scroll_box(height = "300px")
+```
+
+
+#### Pitching 
+Example: **Justin Verlander**
+```{r}
+verlander <- Pitching %>% 
+  filter(playerID == "verlaju01") %>% 
+  arrange(desc(yearID))
+
+kable(head(verlander)) %>% 
+  kable_styling("striped") %>% 
+  row_spec(4:5, background = "lightblue") %>% 
+  scroll_box(width = "100%")
+
+# Batting %>% 
+#   filter(playerID == "scherma01")
+```
+
+
+#### Fielding
+Example: **DJ LeMahieu**
+```{r}
+Fielding %>% 
+  filter(playerID == "lemahdj01") %>% 
+  arrange(desc(yearID)) %>% 
+  kable() %>% 
+  kable_styling("striped") %>% 
+  scroll_box(height = "300px")
+```
+
+
+#### Salaries
+```{r}
+Salaries %>% 
+  filter(yearID == 2016) %>% 
+  sample_n(15) %>% 
+  kable(align = "llllr") %>% 
+  kable_styling("striped") %>% 
+  scroll_box(height = "300px")
+```
+
+
+#### Teams
+```{r}
+Teams %>% 
+  arrange(desc(yearID)) %>% 
+  head(30) %>% 
+  kable() %>% 
+  kable_styling("striped") %>% 
+  column_spec(c(4, 41), bold = T) %>% 
+  scroll_box(width = "100%", height = "300px")
+```
+
 
 ```{r, fig.align='center'}
 Batting %>% 
@@ -66,7 +159,7 @@ Batting %>%
   theme(legend.position = "none")
 ```
 
-
+can adjust figure width
 ```{r, fig.align='center'}
 Pitching %>% 
   group_by(yearID) %>% 
@@ -79,7 +172,7 @@ Pitching %>%
   theme_bw()
 ```
 
-
+show in table players who played multiple positions (utility player)
 what graph for Fielding?
 
 ```{r, fig.align='center'}
@@ -93,9 +186,25 @@ Fielding %>%
   theme_bw()
 ```
 
+This is definitely not correct
+```{r, fig.align='center'}
+Salaries %>% 
+  filter (yearID >= 2012) %>% 
+  ggplot(aes(x = yearID)) +
+  #geom_ribbon(aes(ymin = 0, ymax = salary)) +
+  geom_ribbon(aes(ymin = min(salary), ymax = max(salary))) +
+  #geom_ribbon(aes(ymin = salary - 1, ymax = salary + 1)) +
+  theme_bw()
+```
+
+
+graph showing players
+
+salary - geom_ribbon
+scales package to convert it to dollars
+
 
 _Notes_
 
-- include the salary table?
-- what visualizations should be included?
-- am I allowed to say "you" or "we"?
+- help with geom_ribbon and geom_label (figured out geom_label in fangraphs file)
+- would battingLabels data frame be useful?

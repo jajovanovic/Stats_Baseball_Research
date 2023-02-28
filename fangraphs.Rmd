@@ -22,66 +22,68 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r, include=FALSE}
 library(tidyverse)
 library(readr)
+library(stringr)
 library(knitr)
 library(kableExtra)
 ```
 
 **type of data available:** game-by-game, summary statistics (split by Batting, Pitching, and Fielding)
 
+throughout we will be using several r packages... what they are... what they do... (should this be here or in the intro section whenever we make that?)
+
 There are two ways to use data from FanGraphs in R:
 
 1.  Downloading the data directly from <https://www.fangraphs.com/> and importing it into R
-1.  Using the **baseballr** package
+1.  Using the [**baseballr**](https://billpetti.github.io/baseballr/index.html) package
 
 ## FanGraphs Website
 
 The 'Leaders' and 'Teams' pages will both bring up a dashboard that can easily be downloaded. The data is very customizable. There are several tabs that will show different sets of data. And at the bottom of the page there is an option to select which variables to include in order to make a fully custom report. In the top right corner of the table it says "Export Data". The data will download as a CSV file. 
 
-QUESTION: do I have to go into detail about how to load data into R?
-
-The file I chose to download is the 2022 Team Batting Stats.
+The file I chose to download is the 2022 Team Batting Stats. If the working directory is set as the source file location, you can use the `read_csv()` function (from the **readr** package) with just the file name in quotes. To check the working directory run the function `getwd`. To change the working directory go to the "Session" menu and select "Set Working Directory".
 
 ```{r, message=FALSE, warning=FALSE}
 fg_download <- read_csv("FanGraphs Leaderboard.csv")
 ```
 
+WORK ON THIS!!!!! (get team names to stay visible while scrolling) - this code makes an additional column at the start that has the teams but it is not fixed while the rest moves
 ```{r}
+fg_download <- as.data.frame(fg_download)
+row.names(fg_download) <- fg_download$Team
 kable(fg_download) %>% 
   kable_styling("striped") %>% 
   scroll_box(width = "100%", height = "300px")
 ```
 
-There are a few important things to note about the data. The variables representing walk rate and strikeout rate have '%' in the column name and in the data values. This is not ideal. Those column names must be placed in backticks ` ` whenever referenced because of the special character. Another option is to change the name using a function like `rename()`. To fix the data values use the function `substr()`. After that make the variables numeric instead of character.
+There are a few important things to note about the data. The variables representing walk rate and strikeout rate have '%' in the column name and in the data values. This is not ideal. Those column names must be placed in backticks ` ` whenever referenced because of the special character. Another option is to change the name using a function like `rename()`. To fix the data values use the function `str_remove()` inside of `mutate()`. After that make the variables numeric instead of character.
 
 ```{r}
 # renaming the columns
-fg_update <- fg_download %>% rename(BB_rate = `BB%`)
-fg_update <- fg_update %>% rename(K_rate = `K%`)
+fg_update <- fg_download %>% rename(BB_rate = `BB%`, K_rate = `K%`)
 
 # fixing the data values
-fg_update$BB_rate <- substr(fg_update$BB_rate, 0, nchar(fg_update$BB_rate)-1)
-fg_update$K_rate <- substr(fg_update$K_rate, 0, nchar(fg_update$K_rate)-1)
+fg_update <- fg_update %>% 
+  mutate(BB_rate = str_remove(BB_rate, "%"), K_rate = str_remove(K_rate, "%"))
 
 # make the variables numeric
 fg_update$BB_rate <- as.numeric(fg_update$BB_rate)
 fg_update$K_rate <- as.numeric(fg_update$K_rate)
 ```
 
-Since some of the original walk rate values were four elements (like 9.7%) and some were five elements (10.0%), the function `nchar()` was used. It counts the number of element in a character variable. Using that and subtracting one made sure that only the '%' would be cut from each observation. Since the data set is small it is easy to see that all the values of strikeout rate have five elements. So technically `substr(fg_update$K_rate, 0, 4)` would work, but `nchar()-1` is more universal.
 
 ```{r, fig.align='center'}
 fg_update %>% 
-  ggplot(aes(x = BB_rate, y = K_rate, color = Team)) + 
-  geom_point() +
-  scale_color_viridis_d() +
-  labs(title = "K% and BB% For Each MLB Team", x = "Walk Rate(%)", y = "Strikeout Rate(%)") +
+  ggplot(aes(x = BB_rate, y = K_rate, label = Team, fill = WAR)) + 
+  geom_label(alpha = 0.6) +
+  labs(title = "K% and BB% For Each MLB Team", 
+       x = "Walk Rate(%)", y = "Strikeout Rate(%)") +
   theme_bw()
 ```
-
+?: how is the coloring on this?
 
 ## baseballr
 
-There are functions to action game logs, leaderboards, and park factors. The game logs and leaderboards each have separate functions for pitchers and for hitters. 
+There are functions to access game logs, leaderboards, and park factors. The game logs and leaderboards each have separate functions for pitchers and for hitters. 
 
 ```{r, message=FALSE, warning=FALSE}
 library(baseballr)
@@ -93,25 +95,54 @@ To access game logs for pitchers: `fg_pitcher_game_logs()`
 To access game logs for batters: `fg_batter_game_logs()`
 To access Minor League data: `fg_milb_pitcher_game_logs()` , `fg_milb_batter_game_logs()`
 
-Both of these functions require input of 'playerid' and 'year'. To find a player's playerid search them on the [FanGraphs](https://www.fangraphs.com/) website. The playerid is the numbers after the player's name in the URL. For example, to find Aaron Judge's playerid look at his page: <https://www.fangraphs.com/players/aaron-judge/15640/stats?position=OF>. Aaron Judge's player id is 15640.
+Both of these functions require input of 'playerid' and 'year'. To find a player's playerid search them on the [FanGraphs](https://www.fangraphs.com/) website. The playerid is the numbers after the player's name in the URL. For example, to find Aaron Judge's playerid look at his page: <https://www.fangraphs.com/players/aaron-judge/15640/stats?position=OF>. Aaron Judge's FanGraphs player id is 15640.
 
 ```{r}
 judge <- fg_batter_game_logs(playerid = 15640, year = 2021)
 ```
 
-This produces a data frame with 245 variables. Each row is a different is a different day within the 2021 season.
+This produces a data frame with 245 variables. Each row is a different game played within the 2021 season.
+
+```{r, message=FALSE, warning=FALSE, fig.align='center'}
+judge_filtered <- judge %>% 
+  dplyr::select(PlayerName, Date, Opp, Pos, AB:H, HR:BB, SO, `BB%`:BABIP, wOBA, EV:`HardHit%`)
+
+judge_filtered %>% 
+  ggplot(aes(x = EV, LA, color = factor(RBI))) +
+  geom_point(alpha = 0.6) +
+  labs(title = "Aaron Judge Batting", 
+       x = "Exit Velocity", y = "Launch Angle", color = "RBI") +
+  theme_bw()
+```
+
 
 #### Leaderboards
 To access leaderboards for pitchers: `fg_pitcher_leaders()`
 To access leaderboards for pitchers: `fg_batter_leaders()`
 
-The arguments are 'x' for the first season of interest, 'y' for the last season of interest, 'league', and 'pitcher_type' ("sta" for starts, "rel" for relievers, "pit" for all pitchers).
+The arguments are 'x' for the first season of interest, 'y' for the last season of interest, 'league', and 'pitcher_type' (default is "pit" for all pitchers, other options are "sta" for starters and "rel" for relievers).
 
 ```{r, message=FALSE, warning=FALSE}
-pitch_leaders <- fg_pitch_leaders(x = 2020, y = 2022)
+pitch_leaders <- fg_pitcher_leaders(x = 2020, y = 2022)
 ```
 
 The resulting data frame has 303 variables. 
+
+```{r, fig.align='center'}
+pl_filtered <- pitch_leaders %>% 
+  dplyr::select(playerid:G, IP:BB, SO, Pitches, AVG:BABIP, WAR:Dollars)
+
+pl_filtered %>% 
+  ggplot(aes(x = factor(Season), y = ERA)) +
+  geom_jitter(alpha = 0.6, aes(color = Age),
+              position=position_jitter(0.2)) +
+  labs(title = "Pitchers", x = "Season") +
+  scale_color_viridis_b() +
+  theme_bw()
+```
+
+
+
 
 [Here](https://billpetti.github.io/baseballr/reference/fangraphs.html) is the page with all of the FanGraphs functions in **baseballr**
 
@@ -120,7 +151,16 @@ The resulting data frame has 303 variables.
 _Notes_
 
 - I'm not sure what the 'qual' or 'ind' arguments are - since they are not required is it fine to not talk about them?
+ind - best for that season or best over all the seasons
+qual - batters is PA per game, pitchers is innings per game
+
 - I don't know what the park factors are
+can access it here (functions) if you want to
+
 - There are so many variables in the baseballr data frames so I didn't know what visualizations to make
+use select and pick a handful of them
+traditional stats W:
+
+link to baseballr
 
 PROS AND CONS

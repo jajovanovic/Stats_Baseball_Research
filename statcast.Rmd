@@ -1,0 +1,185 @@
+---
+title: "Statcast"
+output: html_document
+date: ''
+---
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300&family=Source+Sans+Pro&display=swap" rel="stylesheet">
+<style>
+
+body{
+font-family: 'Source Sans Pro', sans-serif;
+}
+
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+```
+
+**type of data available:** pitch-by-pitch, summary statistics (in leaderboards)
+
+Stacast is tracking technology commonly used in Major League Baseball. There are two ways to use data from Statcast in R:
+
+1.  Downloading the data directly from the Baseball Savant website and importing it into R
+1.  Using the [**baseballr**](https://billpetti.github.io/baseballr/index.html) package
+
+One important note is that Statcast data only goes back to 2015.
+
+## Baseball Savant Website
+
+The Statcast data is very customizable. The [leaderboard](https://baseballsavant.mlb.com/statcast_leaderboard) allows you to select which positions, teams, seasons, and a threshold. In the top right corner there is an option of which statistic to find the leaderboard for, with hitting, pitching, fielding, running, and positioning. The data can be downloaded as a CSV file. Statcast [Search](https://baseballsavant.mlb.com/statcast_search) allows for much more user customization. Here is a screenshot of the page:
+
+```{r, fig.align='center', fig.width=6}
+include_graphics("statcast_search.png")
+```
+
+In the top left corner of the data there are three icons:
+```{r, fig.align='center', fig.width=6}
+include_graphics("statcast_save.png")
+```
+The middle blue one downloads the results of the search as a CSV. The rightmost icon will download the data. It will contain pitch-by-pitch data, so it is a really large file. Often it will only work for short lists of results, otherwise it will time out. 
+
+GO ON MORE...
+
+The file I downloaded is the default table from clicking on "Statistics", "Player Pitching", "2022". No variables were added or removed. 
+
+```{r, message=FALSE, warning=FALSE}
+sc_download <- read_csv("sc_pitching_2022.csv")
+```
+Not sure what the last column '..13' is
+
+```{r, fig.align='center', fig.width=7}
+sc_download %>% 
+  kable() %>% 
+  kable_styling("striped") %>%  
+  scroll_box(width = "100%", height = "300px")
+
+sc_download %>% 
+  ggplot(aes(x = xwoba)) +
+  geom_density(fill = "cornflowerblue", alpha = .5) +
+  theme_bw()
+```
+
+
+
+## baseballr
+
+```{r}
+library(baseballr)
+```
+
+There are four functions specifically for Statcast: `statcast_search()`, `statcast_search_batters()`, `statcast_search_pitchers()`, and `statcast_leaderboards()`. 
+
+#### Search
+
+The search functions require a start date, end date, and player as arguments. Similar to the process for FanGraphs, a player's playerid is in the URL for their [Baseball Savant](https://baseballsavant.mlb.com/) page. It is the string of numbers after their name. For example, <https://baseballsavant.mlb.com/savant-player/aaron-judge-592450?stats=statcast-r-hitting-mlb>. Aaron Judge's Statcast playerid (his MLBAM ID) is 592450. Additionally, you could find the playerid through the [MLB website](https://www.mlb.com/). Search for a specific player. The end of the URL will say playerId= and then a number. This is the link to Aaron Judge's  <https://www.mlb.com/search?q=aaron%20ju&playerId=592450>, which identifies his playerid as 592450. 
+
+```{r}
+judge <- statcast_search(start_date = "2022-06-15", end_date= "2022-07-15", playerid = 592450)
+```
+
+The this produces pitch-by-pitch data for every game in the designated time frame. There are 92 variables. This data frame includes 27 games, which resulted in 504 rows. We most take into consideration the amount of results created when calling this function. 
+
+```{r, fig.align='center', fig.width=7}
+judge %>% 
+  ggplot(aes(x = description, y = pitch_type)) +
+  geom_jitter(alpha = 0.4, aes(color = release_speed), 
+              position = position_jitter(0.2)) +
+  labs(x = "Description", y = "Pitch Type", color = "Release Speed") +
+  scale_color_viridis_b() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```
+
+
+<center>
+<style>
+div.blue { background-color:#e6f0ff; border-radius: 5px; padding: 20px;}
+</style>
+<div class = "blue">
+
+_Important note: the **Statcast** ID is not the same as the **FanGraphs** ID!_ 
+
+</div>
+</center>
+
+
+```{r}
+mult <- statcast_search(start_date = "2022-06-15", end_date= "2022-07-15", playerid = c(592450, 519317))
+```
+This doesn't show both players, it only shows Judge (produces the same results as the previous code)
+
+```{r}
+years <- statcast_search(start_date = "2021-07-15", end_date= "2022-07-15", playerid = 592450)
+```
+This only shows 2021
+
+#### Leaderboards
+
+There are two required arguments to access a leaderboard: 'leaderboard' and 'year'. The options for 'leaderboard' are "exit_velocity_barrels", "expected_statistics", "pitch_arsenal", "outs_above_average", "directional_oaa", "catch_probability", "pop_time", "sprint_speed", and "running_splits_90_ft". There are optional arguments that would help limit the observations produced; a full list can be found in the [documentation](https://billpetti.github.io/baseballr/reference/statcast_leaderboards.html).
+
+```{r}
+sc_lead_evb <- statcast_leaderboards(leaderboard = "exit_velocity_barrels", year = 2022)
+sc_lead_exp <- statcast_leaderboards(leaderboard = "expected_statistics", year = 2022)
+```
+
+Exit Velocity & Barrels Leaderboard:
+```{r, fig.align='center', fig.width=7}
+sc_lead_evb %>% 
+  head() %>% 
+  kable() %>% 
+  kable_styling("striped") %>%  
+  scroll_box(width = "100%")
+
+sc_lead_evb %>% 
+  ggplot(aes(x = max_distance, y = max_hit_speed, color = avg_distance, size = avg_hit_speed)) +
+  geom_point(alpha = .5) +
+  labs(title = "Hiting Leaders", x = "Max Distance", y = "Max Hit Speed",
+       color = "Average Distance", size = "Average Hit Speed") +
+  scale_color_viridis_b() +
+  theme_bw()
+```
+
+
+Expected Statistics Leaderboard:
+```{r, fig.align='center', fig.width=7}
+sc_lead_exp %>% 
+  head() %>% 
+  kable() %>% 
+  kable_styling("striped") %>% 
+  scroll_box(width = "100%")
+
+sc_lead_exp %>% 
+  ggplot(aes(x = ba, y = est_ba, color = pa)) + 
+  geom_point(alpha = .5) +
+  labs(x = "Batting Average", y = "Expected Batting Average",
+       color = "Plate Appearances") +
+  scale_color_viridis_b() +
+  theme_bw()
+```
+
+
+
+
+not sure why this isn't working because it's the example from the website
+```{r, eval=FALSE}
+playerid_lookup("Garcia", "Karim")
+```
+
+
+_Notes_
+
+- can I refer to it as "Statcast ID" even though it is technically the MLBAM ID (which is not specific to Statcast I think)
+- I tried to adjust the size of statcast search but it wouldn't respond
+- figure out if I can do multiple years at once or multiple players at once
+
+
