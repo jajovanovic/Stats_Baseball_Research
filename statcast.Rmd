@@ -48,8 +48,6 @@ include_graphics("statcast_save.png")
 ```
 The middle blue one downloads the results of the search as a CSV. The rightmost icon will download the data. It will contain pitch-by-pitch data, so it is a really large file. Often it will only work for short lists of results, otherwise it will time out. 
 
-GO ON MORE...
-
 The file I downloaded is the default table from clicking on "Statistics", "Player Pitching", "2022". No variables were added or removed. 
 
 ```{r, message=FALSE, warning=FALSE}
@@ -152,7 +150,9 @@ sc_lead_evb %>%
   kable() %>% 
   kable_styling("striped") %>%  
   scroll_box(width = "100%")
+```
 
+```{r, include=FALSE}
 sc_lead_evb %>% 
   ggplot(aes(x = max_distance, y = max_hit_speed, color = avg_distance, size = avg_hit_speed)) +
   geom_point(alpha = .5) +
@@ -163,9 +163,7 @@ sc_lead_evb %>%
 ```
 
 
-**NEW:** 
-I tried to use `geom_label()` to show the player with the max and min but it isn't turning out right - it changes the label for hit speed to letters instead of the dots, name is getting cut off (can it be wrapped?)
-```{r, fig.align='center', fig.width=7}
+```{r, fig.align='center', fig.width=8, echo=FALSE}
 sc_lead_evb %>% 
   group_by(player_id) %>% 
   ggplot(aes(x = max_distance, y = max_hit_speed, color = avg_distance)) +
@@ -176,18 +174,7 @@ sc_lead_evb %>%
              show.legend = FALSE) +
   labs(title = "Hitting Leaders", x = "Max Distance", y = "Max Hit Speed",
        color = "Average Distance", size = "Average Hit Speed") +
-  scale_color_viridis_b() +
-  theme_bw()
-
-sc_lead_evb %>% 
-  group_by(player_id) %>% 
-  ggplot(aes(x = max_distance, y = max_hit_speed, color = avg_distance, size = avg_hit_speed)) +
-  geom_point(alpha = .5) +
-  geom_text(data = sc_lead_evb %>% 
-               filter(max_distance %in% range(max_distance)),
-             aes(label = paste(first_name, last_name)), nudge_y = 0.5) +
-  labs(title = "Hitting Leaders", x = "Max Distance", y = "Max Hit Speed",
-       color = "Average Distance", size = "Average Hit Speed") +
+  #xlim(375, 510) +
   scale_color_viridis_b() +
   theme_bw()
 ```
@@ -212,17 +199,14 @@ sc_lead_exp %>%
 ```
 
 
-
-
-not sure why this isn't working because it's the example from the website
-```{r, eval=FALSE}
-playerid_lookup("Garcia", "Karim")
+```{r, include=FALSE}
+# not sure why this isn't working because it's the example from the website
+#playerid_lookup("Garcia", "Karim")
 ```
 
 
 _Notes_
 
-- can I refer to it as "Statcast ID" even though it is technically the MLBAM ID (which is not specific to Statcast I think)
 - I tried to adjust the size of statcast search but it wouldn't respond
 - figure out if I can do multiple years at once or multiple players at once
 
