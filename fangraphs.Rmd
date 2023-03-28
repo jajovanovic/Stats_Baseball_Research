@@ -44,46 +44,61 @@ The file I chose to download is the 2022 Team Batting Stats. If the working dire
 
 ```{r, message=FALSE, warning=FALSE}
 fg_download <- read_csv("FanGraphs Leaderboard.csv")
+fg_download <- as.data.frame(fg_download)
 ```
 
-WORK ON THIS!!!!! (get team names to stay visible while scrolling) - this code makes an additional column at the start that has the teams but it is not fixed while the rest moves
-```{r}
-fg_download <- as.data.frame(fg_download)
-row.names(fg_download) <- fg_download$Team
-kable(fg_download) %>% 
+```{r, echo=FALSE}
+# row.names(fg_download) <- fg_download$Team
+fg_download %>% 
+  mutate(Team. = Team) %>% 
+  kable() %>% 
   kable_styling("striped") %>% 
   scroll_box(width = "100%", height = "300px")
 ```
 
-There are a few important things to note about the data. The variables representing walk rate and strikeout rate have '%' in the column name and in the data values. This is not ideal. Those column names must be placed in backticks ` ` whenever referenced because of the special character. Another option is to change the name using a function like `rename()`. To fix the data values use the function `str_remove()` inside of `mutate()`. After that make the variables numeric instead of character.
-
+There are a few important things to note about the data. The variables representing walk rate and strikeout rate have '%' in the column name and in the data values. This is not ideal. Those column names must be placed in backticks ` ` whenever referenced because of the special character. Another option is to change the name using a function like `rename()`. To fix the data values use the function `str_remove()` inside of `mutate()`. We can simultaneously convert the variables to numeric instead of character with `as.numeric()`.
 ```{r}
 # renaming the columns
 fg_update <- fg_download %>% rename(BB_rate = `BB%`, K_rate = `K%`)
 
 # fixing the data values
 fg_update <- fg_update %>% 
-  mutate(BB_rate = str_remove(BB_rate, "%"), K_rate = str_remove(K_rate, "%"))
-
-# make the variables numeric
-fg_update$BB_rate <- as.numeric(fg_update$BB_rate)
-fg_update$K_rate <- as.numeric(fg_update$K_rate)
+  mutate(BB_rate = as.numeric(str_remove(BB_rate, "%")), 
+         K_rate = as.numeric(str_remove(K_rate, "%")))
 ```
 
 
-```{r, fig.align='center'}
+```{r, fig.align='center', echo=FALSE}
 fg_update %>% 
   ggplot(aes(x = BB_rate, y = K_rate, label = Team, fill = WAR)) + 
-  geom_label(alpha = 0.6) +
+  geom_label(alpha = 0.6, size = 3) +
   labs(title = "K% and BB% For Each MLB Team", 
        x = "Walk Rate(%)", y = "Strikeout Rate(%)") +
+  scale_fill_viridis_c() +
   theme_bw()
 ```
-?: how is the coloring on this?
+
+Following the same process as before, I got the 2022 Pitching Leaders. Without changing any settings on FanGraphs, the data frame downloaded has 22 variables and 45 observations.  
+
+```{r, message=FALSE, warning=FALSE}
+fg_pitch_leaders <- read_csv("fg_pitch_leaders.csv")
+```
+
+```{r, echo=FALSE}
+# row.names(fg_download) <- fg_download$Team
+fg_pitch_leaders %>% 
+  kable() %>% 
+  kable_styling("striped") %>% 
+  scroll_box(width = "100%", height = "300px")
+```
+
+**NOTE:** there is something weird going on with Jordan Montgomery
+
+Again, there are variable names with strange characters in them and this is a fairly small dataset. Next we will try accessing leaderboard data, but this time using the **baseballr** package.
 
 ## baseballr
 
-There are functions to access game logs, leaderboards, and park factors. The game logs and leaderboards each have separate functions for pitchers and for hitters. 
+There are [functions](https://billpetti.github.io/baseballr/reference/fangraphs.html) to access game logs, leaderboards, and park factors. The game logs and leaderboards each have separate functions for pitchers and for hitters. 
 
 ```{r, message=FALSE, warning=FALSE}
 library(baseballr)
@@ -103,10 +118,20 @@ judge <- fg_batter_game_logs(playerid = 15640, year = 2021)
 
 This produces a data frame with 245 variables. Each row is a different game played within the 2021 season.
 
-```{r, message=FALSE, warning=FALSE, fig.align='center'}
+```{r, message=FALSE, warning=FALSE}
 judge_filtered <- judge %>% 
   dplyr::select(PlayerName, Date, Opp, Pos, AB:H, HR:BB, SO, `BB%`:BABIP, wOBA, EV:`HardHit%`)
+```
 
+```{r, message=FALSE, warning=FALSE}
+judge_filtered %>% 
+  sample_n(15) %>% 
+  kable() %>% 
+  kable_styling("striped") %>% 
+  scroll_box(height = "300px")
+```
+
+```{r, fig.align='center', fig.width=7, message=FALSE, warning=FALSE, echo=FALSE}
 judge_filtered %>% 
   ggplot(aes(x = EV, LA, color = factor(RBI))) +
   geom_point(alpha = 0.6) +
@@ -120,7 +145,7 @@ judge_filtered %>%
 To access leaderboards for pitchers: `fg_pitcher_leaders()`
 To access leaderboards for pitchers: `fg_batter_leaders()`
 
-The arguments are 'x' for the first season of interest, 'y' for the last season of interest, 'league', and 'pitcher_type' (default is "pit" for all pitchers, other options are "sta" for starters and "rel" for relievers).
+The arguments are 'x' for the first season of interest, 'y' for the last season of interest, 'league', and 'pitcher_type' (default is "pit" for all pitchers, other options are "sta" for starters and "rel" for relievers). There are additional optional arguments: 'ind', which specifies if if the data should look at one season or over many, and 'league', which determines if players must meet a certain qualification to be included (plate appearances for batters and innings per game for pitchers).
 
 ```{r, message=FALSE, warning=FALSE}
 pitch_leaders <- fg_pitcher_leaders(x = 2020, y = 2022)
@@ -131,7 +156,9 @@ The resulting data frame has 303 variables.
 ```{r, fig.align='center'}
 pl_filtered <- pitch_leaders %>% 
   dplyr::select(playerid:G, IP:BB, SO, Pitches, AVG:BABIP, WAR:Dollars)
+```
 
+```{r, fig.align='center', fig.width=7, message=FALSE, warning=FALSE, echo=FALSE}
 pl_filtered %>% 
   ggplot(aes(x = factor(Season), y = ERA)) +
   geom_jitter(alpha = 0.6, aes(color = Age),
@@ -142,25 +169,11 @@ pl_filtered %>%
 ```
 
 
+Accessing data from baseballr gives over double the amount of observations and hundreds of more variables.  
+
+There are also FanGraphs functions that can scrape [park factors](https://billpetti.github.io/baseballr/reference/fg_park.html).
 
 
-[Here](https://billpetti.github.io/baseballr/reference/fangraphs.html) is the page with all of the FanGraphs functions in **baseballr**
+PROS AND CONS - I'm not sure that there's a way to cleanly format it to make a pros and cons table. Should we still put some or just not do this part?
 
 
-
-_Notes_
-
-- I'm not sure what the 'qual' or 'ind' arguments are - since they are not required is it fine to not talk about them?
-ind - best for that season or best over all the seasons
-qual - batters is PA per game, pitchers is innings per game
-
-- I don't know what the park factors are
-can access it here (functions) if you want to
-
-- There are so many variables in the baseballr data frames so I didn't know what visualizations to make
-use select and pick a handful of them
-traditional stats W:
-
-link to baseballr
-
-PROS AND CONS

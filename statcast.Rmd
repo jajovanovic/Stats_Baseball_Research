@@ -55,10 +55,10 @@ The file I downloaded is the default table from clicking on "Statistics", "Playe
 ```{r, message=FALSE, warning=FALSE}
 sc_download <- read_csv("sc_pitching_2022.csv")
 ```
-Not sure what the last column '..13' is
 
-```{r, fig.align='center', fig.width=7}
+```{r, fig.align='center', fig.width=6, echo=FALSE}
 sc_download %>% 
+  dplyr::select(-`...13`) %>% 
   kable() %>% 
   kable_styling("striped") %>%  
   scroll_box(width = "100%", height = "300px")
@@ -68,7 +68,6 @@ sc_download %>%
   geom_density(fill = "cornflowerblue", alpha = .5) +
   theme_bw()
 ```
-
 
 
 ## baseballr
@@ -89,7 +88,7 @@ judge <- statcast_search(start_date = "2022-06-15", end_date= "2022-07-15", play
 
 The this produces pitch-by-pitch data for every game in the designated time frame. There are 92 variables. This data frame includes 27 games, which resulted in 504 rows. We most take into consideration the amount of results created when calling this function. 
 
-```{r, fig.align='center', fig.width=7}
+```{r, include=FALSE, fig.align='center', fig.width=7}
 judge %>% 
   ggplot(aes(x = description, y = pitch_type)) +
   geom_jitter(alpha = 0.4, aes(color = release_speed), 
@@ -97,6 +96,19 @@ judge %>%
   labs(x = "Description", y = "Pitch Type", color = "Release Speed") +
   scale_color_viridis_b() +
   theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```
+
+
+```{r, fig.align='center', message=FALSE, warning=FALSE, fig.width=7}
+judge %>% 
+  group_by(description, pitch_type) %>% 
+  summarize(count = n()) %>% 
+  ggplot(aes(x = description, y = pitch_type, fill = count)) +
+  geom_tile() + 
+  labs(x = "Description", y = "Pitch Type", color = "Release Speed") +
+  scale_fill_viridis_b() +
+  theme_classic() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
 ```
 
@@ -113,6 +125,7 @@ _Important note: the **Statcast** ID is not the same as the **FanGraphs** ID!_
 </center>
 
 
+**attempt to get multiple seasons at once**
 ```{r}
 mult <- statcast_search(start_date = "2022-06-15", end_date= "2022-07-15", playerid = c(592450, 519317))
 ```
@@ -133,7 +146,7 @@ sc_lead_exp <- statcast_leaderboards(leaderboard = "expected_statistics", year =
 ```
 
 Exit Velocity & Barrels Leaderboard:
-```{r, fig.align='center', fig.width=7}
+```{r, fig.align='center', fig.width=7, echo=FALSE}
 sc_lead_evb %>% 
   head() %>% 
   kable() %>% 
@@ -143,7 +156,37 @@ sc_lead_evb %>%
 sc_lead_evb %>% 
   ggplot(aes(x = max_distance, y = max_hit_speed, color = avg_distance, size = avg_hit_speed)) +
   geom_point(alpha = .5) +
-  labs(title = "Hiting Leaders", x = "Max Distance", y = "Max Hit Speed",
+  labs(title = "Hitting Leaders", x = "Max Distance", y = "Max Hit Speed",
+       color = "Average Distance", size = "Average Hit Speed") +
+  scale_color_viridis_b() +
+  theme_bw()
+```
+
+
+**NEW:** 
+I tried to use `geom_label()` to show the player with the max and min but it isn't turning out right - it changes the label for hit speed to letters instead of the dots, name is getting cut off (can it be wrapped?)
+```{r, fig.align='center', fig.width=7}
+sc_lead_evb %>% 
+  group_by(player_id) %>% 
+  ggplot(aes(x = max_distance, y = max_hit_speed, color = avg_distance)) +
+  geom_point(alpha = .5, aes(size = avg_hit_speed)) +
+  geom_label(data = sc_lead_evb %>% 
+               filter(max_distance %in% range(max_distance) | max_hit_speed %in% range(max_hit_speed)),
+             aes(label = paste(first_name, last_name, sep = "\n")),
+             show.legend = FALSE) +
+  labs(title = "Hitting Leaders", x = "Max Distance", y = "Max Hit Speed",
+       color = "Average Distance", size = "Average Hit Speed") +
+  scale_color_viridis_b() +
+  theme_bw()
+
+sc_lead_evb %>% 
+  group_by(player_id) %>% 
+  ggplot(aes(x = max_distance, y = max_hit_speed, color = avg_distance, size = avg_hit_speed)) +
+  geom_point(alpha = .5) +
+  geom_text(data = sc_lead_evb %>% 
+               filter(max_distance %in% range(max_distance)),
+             aes(label = paste(first_name, last_name)), nudge_y = 0.5) +
+  labs(title = "Hitting Leaders", x = "Max Distance", y = "Max Hit Speed",
        color = "Average Distance", size = "Average Hit Speed") +
   scale_color_viridis_b() +
   theme_bw()
@@ -151,7 +194,7 @@ sc_lead_evb %>%
 
 
 Expected Statistics Leaderboard:
-```{r, fig.align='center', fig.width=7}
+```{r, fig.align='center', fig.width=7, echo=FALSE}
 sc_lead_exp %>% 
   head() %>% 
   kable() %>% 
@@ -161,6 +204,7 @@ sc_lead_exp %>%
 sc_lead_exp %>% 
   ggplot(aes(x = ba, y = est_ba, color = pa)) + 
   geom_point(alpha = .5) +
+  geom_abline() +
   labs(x = "Batting Average", y = "Expected Batting Average",
        color = "Plate Appearances") +
   scale_color_viridis_b() +

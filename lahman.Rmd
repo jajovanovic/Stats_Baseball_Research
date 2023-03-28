@@ -23,13 +23,13 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(knitr)
 library(kableExtra)
+library(patchwork)
+set.seed(2023)
 ```
 
 The **Lahman** package contains several tables with data on pitching, hitting, fielding, and more. This package is updated with each season. The following references the 10.0-1 version. 
 
 **type of data available:** season-by-season, broken down by team for `Batting` / `Pitching` (so if a player played on multiple teams in one season, each team as their own row), broken down by team _and_ position for `Fielding`
-
-broken down by team for players that changed teams during a season and position for fielding (find a way to illustrate this tables) WORK ON!!!!!
 
 The main tables are:
 
@@ -51,7 +51,14 @@ library(Lahman)
 
 
 #### People
-```{r}
+Here is an example of the `People` table. Each row contains data about a player's birth date, hometown, death date, physical characteristics, first game, last game, and their ID for a few popular databases. 
+```{r, eval=FALSE}
+People %>% 
+  sample_n(6)
+```
+
+
+```{r, echo=FALSE}
 People %>% 
   sample_n(6) %>% 
   kable() %>% 
@@ -60,19 +67,23 @@ People %>%
   scroll_box(width = "100%")
 ```
 
-?: is there a way to make the text not wrap (without having to individually adjust every column width)? 
-
 
 #### Batting 
 Example: **José Iglesias**
-```{r}
-# People %>% filter(nameFirst == "Mookie", nameLast == "Betts")
-# People %>% filter(nameFirst == "Jose", nameLast == "Iglesias")
 
+Here is what the `Batting` table looks like for a single player. Seasons where Iglesias played for multiple teams are highlighted to help show how this table is organized.
+```{r, include=FALSE}
+People %>% filter(nameFirst == "Jose", nameLast == "Iglesias")
+```
+
+
+```{r}
 iglesias <- Batting %>% 
   filter(playerID == "iglesjo01") %>% 
   arrange(desc(yearID))
+```
 
+```{r, echo=FALSE}
 kable(iglesias) %>% 
   kable_styling("striped") %>% 
   row_spec(1:2, background = "skyblue") %>% 
@@ -81,12 +92,13 @@ kable(iglesias) %>%
 ```
 
 
-`battingStats()` produces a data frame with the same variables as `Batting`, and additionally calculates some statistics (as mentioned above). 
-
+`battingStats()` produces a data frame with the same variables as `Batting`, and additionally calculates some statistics (as mentioned above). This table is only showing playerID, yearID, teamID, and the variables _exclusive_ to `battingStats()`.
 ```{r}
 iglesias_stats <- battingStats(iglesias) %>% 
   dplyr::select(playerID, yearID, teamID, BA:BABIP)
+```
 
+```{r, echo=FALSE}
 kable(iglesias_stats) %>% 
   kable_styling("striped") %>% 
   row_spec(1:2, background = "skyblue") %>% 
@@ -97,11 +109,15 @@ kable(iglesias_stats) %>%
 
 #### Pitching 
 Example: **Justin Verlander**
+
+Just like the `Batting` table, the `Pitching` table is split by season, and team if the player pitched for several teams in one year. There are two rows for 2017 because Verlander moved from the Tigers to the Astros. 
 ```{r}
 verlander <- Pitching %>% 
   filter(playerID == "verlaju01") %>% 
   arrange(desc(yearID))
+```
 
+```{r, echo=FALSE}
 kable(head(verlander)) %>% 
   kable_styling("striped") %>% 
   row_spec(4:5, background = "lightblue") %>% 
@@ -114,18 +130,41 @@ kable(head(verlander)) %>%
 
 #### Fielding
 Example: **DJ LeMahieu**
-```{r}
+
+The `Fielding` table contains some of the basic statistics used for fielders. Notice the last five variables; they all say "NA". This means that when there is a missing value the Lahman database fills in "NA" as opposed to leaving the box blank.
+```{r, eval=FALSE}
+Fielding %>% 
+  filter(playerID == "lemahdj01") %>% 
+  arrange(desc(yearID))
+```
+
+
+```{r, echo=FALSE}
 Fielding %>% 
   filter(playerID == "lemahdj01") %>% 
   arrange(desc(yearID)) %>% 
   kable() %>% 
   kable_styling("striped") %>% 
+  row_spec(1:3, background = "lightblue") %>% 
+  row_spec(4:6, background = "skyblue") %>% 
+  row_spec(7:9, background = "cornflowerblue") %>% 
+  row_spec(14:17, background = "lightblue") %>% 
+  row_spec(18:21, background = "skyblue") %>% 
+  row_spec(22:25, background = "cornflowerblue") %>% 
+  row_spec(26:28, background = "mediumpurple") %>% 
   scroll_box(height = "300px")
 ```
 
 
 #### Salaries
-```{r}
+The `Salaries` table is very simple with only five variables. One limitation of it is restricted time frame; the earliest season available is 1985 and the latest season is seven years prior to the current year.  
+```{r, eval=FALSE}
+Salaries %>% 
+  filter(yearID == 2016) %>% 
+  sample_n(15) 
+```
+
+```{r, fig.width=6, echo=FALSE}
 Salaries %>% 
   filter(yearID == 2016) %>% 
   sample_n(15) %>% 
@@ -136,7 +175,14 @@ Salaries %>%
 
 
 #### Teams
-```{r}
+This is what the `Teams` table looks like for the 2021 season. It includes 48 variables, covering team identifications, standings, totals for numerous statistics, home ballpark, attendance, park factors, and their ID for a couple other databases.
+```{r, eval=FALSE}
+Teams %>% 
+  arrange(desc(yearID)) %>% 
+  head(30)
+```
+
+```{r, echo=FALSE}
 Teams %>% 
   arrange(desc(yearID)) %>% 
   head(30) %>% 
@@ -147,64 +193,122 @@ Teams %>%
 ```
 
 
-```{r, fig.align='center'}
+### Visualizations {.tabset}
+
+Here are a few visualizations to help show the data available in the **Lahman** package.
+
+Below is a visualization for each table mentioned above
+
+#### Batting
+
+```{r, fig.align='center', fig.width=7, echo=FALSE}
 Batting %>% 
   group_by(yearID) %>% 
   summarize(totalHR = sum(HR)) %>% 
-  filter(yearID >= 1996) %>% 
+  filter(yearID >= 1990) %>% 
   ggplot(aes(x = yearID, y = totalHR, fill = factor(yearID))) +
   geom_col() +
-  labs(x = "Year", y = "Total HRs") +
+  labs(title = "Total Home Runs from 1990-2021", x = "Year", y = "Total HRs") +
   theme_bw() +
   theme(legend.position = "none")
 ```
 
-can adjust figure width
-```{r, fig.align='center'}
+#### Pitching
+
+```{r, fig.align='center', fig.width=7, echo=FALSE, message=FALSE, warning=FALSE}
 Pitching %>% 
   group_by(yearID) %>% 
   filter(yearID >= 1921, !is.na(ERA)) %>% 
   summarize(avgERA = mean(ERA)) %>% 
   ggplot(aes(x = yearID, y = avgERA)) + 
   geom_line(size = 1, color = "dodgerblue") +
-  labs(title = "Average ERA in the last 100 years",
+  labs(title = "Average ERA in the Last 100 Years",
        x = "Year", y = "Average ERA") +
   theme_bw()
 ```
 
-show in table players who played multiple positions (utility player)
-what graph for Fielding?
+#### Fielding
 
-```{r, fig.align='center'}
+```{r, fig.align='center', fig.width=7, echo=FALSE}
 Fielding %>% 
   filter(yearID >= 2012) %>% 
   ggplot(aes(x = factor(POS), y = DP)) +
   geom_jitter(alpha = 0.4, aes(color = factor(yearID)), 
               position = position_jitter(0.2)) +
-  labs(title = "The Number of Double Plays by Position", 
+  labs(title = "Number of Double Plays by Position", 
        x = "Position", y = "Double Plays", color = "Year") +
   theme_bw()
 ```
 
-This is definitely not correct
-```{r, fig.align='center'}
+#### Salaries
+
+```{r, fig.align='center', fig.width=7, echo=FALSE}
 Salaries %>% 
-  filter (yearID >= 2012) %>% 
+  group_by(yearID) %>% 
+  summarize(Low = min(salary), Median = median(salary), 
+                     Mean = mean(salary), High = max(salary)) %>% 
   ggplot(aes(x = yearID)) +
-  #geom_ribbon(aes(ymin = 0, ymax = salary)) +
-  geom_ribbon(aes(ymin = min(salary), ymax = max(salary))) +
-  #geom_ribbon(aes(ymin = salary - 1, ymax = salary + 1)) +
+  geom_ribbon(aes(ymin = Low, ymax = High), 
+                        fill = "lightblue", color = "black", alpha = 0.5) +  
+  geom_line(aes(y = Median), color = "black", linetype = "dashed") + 
+  geom_line(aes(y = Mean), color = "black", linetype = "dotted") + 
+  scale_y_continuous(labels = scales::label_dollar()) + 
+  theme_bw() + 
+  labs(title = "MLB Salary Range Over Time", 
+          subtitle = "Median = Dashed Line, Mean = Dotted Line",       
+          y = "Salary", 
+          x = "Season")
+```
+
+### {-}
+
+```{r, include=FALSE, fig.align='center', fig.width=10, fig.height=10}
+a <- Batting %>% 
+  group_by(yearID) %>% 
+  summarize(totalHR = sum(HR)) %>% 
+  filter(yearID >= 1990) %>% 
+  ggplot(aes(x = yearID, y = totalHR, fill = factor(yearID))) +
+  geom_col() +
+  labs(title = "Total Home Runs from 1990-2021", x = "Year", y = "Total HRs") +
+  theme_bw() +
+  theme(legend.position = "none")
+b <- Pitching %>% 
+  group_by(yearID) %>% 
+  filter(yearID >= 1921, !is.na(ERA)) %>% 
+  summarize(avgERA = mean(ERA)) %>% 
+  ggplot(aes(x = yearID, y = avgERA)) + 
+  geom_line(size = 1, color = "dodgerblue") +
+  labs(title = "Average ERA in the Last 100 Years",
+       x = "Year", y = "Average ERA") +
   theme_bw()
+c <- Fielding %>% 
+  filter(yearID >= 2012) %>% 
+  ggplot(aes(x = factor(POS), y = DP)) +
+  geom_jitter(alpha = 0.4, aes(color = factor(yearID)), 
+              position = position_jitter(0.2)) +
+  labs(title = "Number of Double Plays by Position", 
+       x = "Position", y = "Double Plays", color = "Year") +
+  theme_bw()
+d <- Salaries %>% 
+  group_by(yearID) %>% 
+  summarize(Low = min(salary), Median = median(salary), 
+                     Mean = mean(salary), High = max(salary)) %>% 
+  ggplot(aes(x = yearID)) +
+  geom_ribbon(aes(ymin = Low, ymax = High), 
+                        fill = "lightblue", color = "black", alpha = 0.5) +  
+  geom_line(aes(y = Median), color = "black", linetype = "dashed") + 
+  geom_line(aes(y = Mean), color = "black", linetype = "dotted") + 
+  scale_y_continuous(labels = scales::label_dollar()) + 
+  theme_bw() + 
+  labs(title = "MLB Salary Range Over Time", 
+          subtitle = "Median = Dashed Line, Mean = Dotted Line",       
+          y = "Salary", 
+          x = "Season")
+(a | b)/(c | d)
 ```
 
 
-graph showing players
-
-salary - geom_ribbon
-scales package to convert it to dollars
+**Looking Ahead:** Many of these tables contain minimal variables that are specific to one part of baseball (such as pitching or fielding). It would be helpful if we could _join_ multiple tables together.
+We will talk more about creating plots in the "Visualizations" section.
 
 
-_Notes_
-
-- help with geom_ribbon and geom_label (figured out geom_label in fangraphs file)
-- would battingLabels data frame be useful?
