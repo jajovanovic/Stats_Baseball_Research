@@ -1,0 +1,230 @@
+---
+title: "Appendix"
+output: html_document
+date: ''
+---
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300&family=Source+Sans+Pro&display=swap" rel="stylesheet">
+<style>
+
+body{
+font-family: 'Source Sans Pro', sans-serif;
+}
+
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+library(Lahman)
+library(baseballr)
+```
+
+### Lahman
+
+```{r, fig.align='center', fig.width=7}
+Batting %>% 
+  group_by(yearID) %>% 
+  summarize(totalHR = sum(HR)) %>% 
+  filter(yearID >= 1990) %>% 
+  ggplot(aes(x = yearID, y = totalHR, fill = factor(yearID))) +
+  geom_col() +
+  labs(title = "Total Home Runs from 1990-2021", x = "Year", y = "Total HRs") +
+  theme_bw() +
+  theme(legend.position = "none")
+```
+
+```{r, fig.align='center', fig.width=7, message=FALSE, warning=FALSE}
+Pitching %>% 
+  group_by(yearID) %>% 
+  filter(yearID >= 1921, !is.na(ERA)) %>% 
+  summarize(avgERA = mean(ERA)) %>% 
+  ggplot(aes(x = yearID, y = avgERA)) + 
+  geom_line(size = 1, color = "dodgerblue") +
+  labs(title = "Average ERA in the Last 100 Years",
+       x = "Year", y = "Average ERA") +
+  theme_bw()
+```
+
+```{r, fig.align='center', fig.width=7}
+Fielding %>% 
+  filter(yearID >= 2012) %>% 
+  ggplot(aes(x = factor(POS), y = DP)) +
+  geom_jitter(alpha = 0.4, aes(color = factor(yearID)), 
+              position = position_jitter(0.2)) +
+  labs(title = "Number of Double Plays by Position", 
+       x = "Position", y = "Double Plays", color = "Year") +
+  theme_bw()
+```
+
+```{r, fig.align='center', fig.width=7}
+Salaries %>% 
+  group_by(yearID) %>% 
+  summarize(Low = min(salary), Median = median(salary), 
+                     Mean = mean(salary), High = max(salary)) %>% 
+  ggplot(aes(x = yearID)) +
+  geom_ribbon(aes(ymin = Low, ymax = High), 
+                        fill = "lightblue", color = "black", alpha = 0.5) +  
+  geom_line(aes(y = Median), color = "black", linetype = "dashed") + 
+  geom_line(aes(y = Mean), color = "black", linetype = "dotted") + 
+  scale_y_continuous(labels = scales::label_dollar()) + 
+  theme_bw() + 
+  labs(title = "MLB Salary Range Over Time", 
+          subtitle = "Median = Dashed Line, Mean = Dotted Line",       
+          y = "Salary", 
+          x = "Season")
+```
+
+
+### FanGraphs
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+fg_download <- read_csv("FanGraphs Leaderboard.csv")
+fg_download <- as.data.frame(fg_download)
+
+# renaming the columns
+fg_update <- fg_download %>% rename(BB_rate = `BB%`, K_rate = `K%`)
+
+# fixing the data values
+fg_update <- fg_update %>% 
+  mutate(BB_rate = as.numeric(str_remove(BB_rate, "%")), 
+         K_rate = as.numeric(str_remove(K_rate, "%")))
+```
+
+```{r, fig.align='center', fig.width=7}
+fg_update %>% 
+  ggplot(aes(x = BB_rate, y = K_rate, label = Team, fill = WAR)) + 
+  geom_label(alpha = 0.6, size = 3) +
+  labs(title = "K% and BB% For Each MLB Team", 
+       x = "Walk Rate(%)", y = "Strikeout Rate(%)") +
+  scale_fill_viridis_c() +
+  theme_bw()
+```
+
+```{r, include=FALSE}
+judge_fg <- fg_batter_game_logs(playerid = 15640, year = 2021)
+judge_filtered <- judge_fg %>% 
+  dplyr::select(PlayerName, Date, Opp, Pos, AB:H, HR:BB, SO, `BB%`:BABIP, wOBA, EV:`HardHit%`)
+```
+
+```{r, fig.align='center', fig.width=7, message=FALSE, warning=FALSE}
+judge_filtered %>% 
+  ggplot(aes(x = EV, LA, color = factor(RBI))) +
+  geom_point(alpha = 0.6) +
+  labs(title = "Aaron Judge Batting", 
+       x = "Exit Velocity", y = "Launch Angle", color = "RBI") +
+  scale_color_viridis_d() +
+  theme_bw()
+```
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+pitch_leaders <- fg_pitcher_leaders(x = 2020, y = 2022)
+pl_filtered <- pitch_leaders %>% 
+  dplyr::select(playerid:G, IP:BB, SO, Pitches, AVG:BABIP, WAR:Dollars)
+```
+
+```{r, fig.align='center', fig.width=7, message=FALSE, warning=FALSE}
+pl_filtered %>% 
+  ggplot(aes(x = factor(Season), y = ERA)) +
+  geom_jitter(alpha = 0.6, aes(color = Age),
+              position=position_jitter(0.2)) +
+  labs(title = "Pitchers", x = "Season") +
+  scale_color_viridis_b() +
+  theme_bw()
+```
+
+
+### Statcast
+
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+sc_download <- read_csv("sc_pitching_2022.csv")
+```
+
+```{r, fig.align='center', fig.width=7}
+sc_download %>% 
+  ggplot(aes(x = xwoba)) +
+  geom_density(fill = "cornflowerblue", alpha = .5) +
+  theme_bw()
+```
+
+```{r, include=FALSE}
+judge_sc <- statcast_search(start_date = "2022-06-15", end_date= "2022-07-15", playerid = 592450)
+```
+
+```{r, fig.align='center', message=FALSE, warning=FALSE, fig.width=7}
+judge_sc %>% 
+  group_by(description, pitch_type) %>% 
+  summarize(count = n()) %>% 
+  ggplot(aes(x = description, y = pitch_type, fill = count)) +
+  geom_tile() + 
+  labs(x = "Description", y = "Pitch Type", color = "Release Speed") +
+  scale_fill_viridis_b() +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```
+
+```{r, include=FALSE}
+sc_lead_evb <- statcast_leaderboards(leaderboard = "exit_velocity_barrels", year = 2022)
+sc_lead_exp <- statcast_leaderboards(leaderboard = "expected_statistics", year = 2022)
+```
+
+```{r, fig.align='center', fig.width=8}
+sc_lead_evb %>% 
+  group_by(player_id) %>% 
+  ggplot(aes(x = max_distance, y = max_hit_speed, color = avg_distance)) +
+  geom_point(alpha = .5, aes(size = avg_hit_speed)) +
+  geom_label(data = sc_lead_evb %>% 
+               filter(max_distance %in% range(max_distance) | max_hit_speed %in% range(max_hit_speed)),
+             aes(label = paste(first_name, last_name, sep = "\n")),
+             show.legend = FALSE) +
+  labs(title = "Hitting Leaders", x = "Max Distance", y = "Max Hit Speed",
+       color = "Average Distance", size = "Average Hit Speed") +
+  #xlim(375, 510) +
+  scale_color_viridis_b() +
+  theme_bw()
+```
+
+```{r, fig.align='center', fig.width=8}
+sc_lead_exp %>% 
+  ggplot(aes(x = ba, y = est_ba, color = pa)) + 
+  geom_point(alpha = .5) +
+  geom_abline() +
+  labs(x = "Batting Average", y = "Expected Batting Average",
+       color = "Plate Appearances") +
+  scale_color_viridis_b() +
+  theme_bw()
+```
+
+
+### Restructuring Data
+
+```{r, include=FALSE}
+library(tidyr)
+
+pitching16 <- Pitching %>% 
+  filter(yearID == 2016)
+
+salaries16 <- Salaries %>% 
+  filter(yearID == 2016)
+
+join_all_keys <- inner_join(pitching16, salaries16, join_by(playerID, yearID, teamID, lgID))
+```
+
+```{r, fig.align='center', fig.width=7, message=FALSE, warning=FALSE}
+join_all_keys %>% 
+  ggplot(aes(x = IPouts, y = salary, color = IPouts)) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  labs(title = "Pitcher Salary by Outs Pitched", 
+       x = "Outs Pitched", y = "Salary") +
+  scale_color_viridis_c() +
+  scale_y_continuous(labels = scales::label_dollar()) +
+  theme_bw() +
+  theme(legend.position = "none")
+```
+

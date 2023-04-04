@@ -38,12 +38,12 @@ One important note is that Statcast data only goes back to 2015.
 
 The Statcast data is very customizable. The [leaderboard](https://baseballsavant.mlb.com/statcast_leaderboard) allows you to select which positions, teams, seasons, and a threshold. In the top right corner there is an option of which statistic to find the leaderboard for, with hitting, pitching, fielding, running, and positioning. The data can be downloaded as a CSV file. Statcast [Search](https://baseballsavant.mlb.com/statcast_search) allows for much more user customization. Here is a screenshot of the page:
 
-```{r, fig.align='center', fig.width=6}
+```{r, fig.align='center', fig.width=6, echo=FALSE}
 include_graphics("statcast_search.png")
 ```
 
 In the top left corner of the data there are three icons:
-```{r, fig.align='center', fig.width=6}
+```{r, fig.align='center', fig.width=6, echo=FALSE}
 include_graphics("statcast_save.png")
 ```
 The middle blue one downloads the results of the search as a CSV. The rightmost icon will download the data. It will contain pitch-by-pitch data, so it is a really large file. Often it will only work for short lists of results, otherwise it will time out. 
@@ -143,7 +143,7 @@ sc_lead_evb <- statcast_leaderboards(leaderboard = "exit_velocity_barrels", year
 sc_lead_exp <- statcast_leaderboards(leaderboard = "expected_statistics", year = 2022)
 ```
 
-Exit Velocity & Barrels Leaderboard:
+**Exit Velocity & Barrels Leaderboard:**
 ```{r, fig.align='center', fig.width=7, echo=FALSE}
 sc_lead_evb %>% 
   head() %>% 
@@ -180,7 +180,7 @@ sc_lead_evb %>%
 ```
 
 
-Expected Statistics Leaderboard:
+**Expected Statistics Leaderboard:**
 ```{r, fig.align='center', fig.width=7, echo=FALSE}
 sc_lead_exp %>% 
   head() %>% 

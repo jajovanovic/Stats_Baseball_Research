@@ -1,0 +1,171 @@
+---
+title: "Visualizations"
+output: html_document
+date: ''
+---
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300&family=Source+Sans+Pro&display=swap" rel="stylesheet">
+<style>
+
+body{
+font-family: 'Source Sans Pro', sans-serif;
+}
+
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(baseballr)
+```
+
+
+## Scatter Plot
+
+Do want to use data from a specific player, across multiple games, or data from one specific game (like the conference case)?
+
+For now I'm using the same data as the statcast file - judge pitch-by-pitch
+```{r}
+judge <- statcast_search(start_date = "2022-06-15", end_date= "2022-07-15", playerid = 592450)
+```
+note: there are variations in sz_top and sz_bot - theoretically they should all be the same because it is the same batter, so I'm going to take the average to generate the zone
+
+
+visualization functions from daniel:
+
+```{r, include=FALSE}
+geom_zone <- function(){
+  geom_rect(xmin=-.7083, xmax=.7083, ymin=1.5, ymax=3.75,
+            alpha=0,color="black", fill="maroon", size=1.5, linetype="dotted")
+}
+
+geom_hitterR <- function(){
+  x <- c(-1.75, -1.4, -1.4, -1.75,  -1.25, -1.4, -1.25, -1.25, -1.5, -1.1, -1.5,
+         -1.9, -1.5, -2.3, -2.4, -1.75, -1.75, -1.75, -1.6, -1.5, -1.5, -1.75, -1.75)
+  y <- c(-0.2, -0.2, 0, 0, 1.5, 2.75, 2.75, 5, 5, 5.5, 6,
+         5.5, 5, 6, 5.75, 5, 5, 2.75, 2.75, 1.5, 0, 0, -0.2)
+  df <- data.frame(x = x, y = y)
+  df <- mutate(df, x = x - 0.5)
+  g <- geom_polygon(data = df, aes(x = x, y = y), fill = "black")
+  g
+}
+```
+This function is giving every player the same exact zone regardless of their height
+
+
+```{r, include=FALSE}
+judge %>% 
+  ggplot(aes(x = plate_x, y = plate_z)) +
+  geom_point() +
+  geom_zone() +
+  theme_bw() +
+  theme(panel.background = element_rect(fill = "azure",
+                                            colour = "black",
+                                            size = 2, linetype = "blank"),
+            panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+
+```
+
+```{r, fig.align='center'}
+judge %>% 
+  ggplot() +
+  geom_point(aes(x = plate_x, y = plate_z, color = p_throws), alpha = 0.5) +
+  geom_rect(aes(xmin = -.7083, xmax = .7083, ymin = mean(sz_bot), ymax = mean(sz_top)),
+            alpha = 0, color = "darkblue", linewidth = 1) +
+  #geom_hitterR() +
+  #scale_color_manual(values = c("turquoise4", "mediumpurple")) +
+  scale_color_manual(values = c("slategrey", "lightseagreen")) +
+  coord_fixed(ratio = 1) + # keeps the ratio of the graph fixed
+  theme_bw()
+```
+
+This doesn't feel right, the zone looks really small
+
+## Heat Map
+
+We will use the Lahman package to get each team's season record.
+
+```{r}
+library(Lahman)
+```
+
+```{r, fig.align='center'}
+records <- Teams %>% 
+  filter(yearID >= 2012)
+
+records %>% 
+  group_by(yearID, franchID) %>% 
+  mutate(win_perc = W/G) %>% 
+  ggplot(aes(x = franchID, y = yearID, fill = win_perc)) +
+  geom_tile() +
+  labs(x = "Team", y = "Year", fill = "Winning \nPercentage") +
+  scale_fill_viridis_c() +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Using 2012 because that's when the Marlins first show
+
+## Spray Angle
+
+```{r}
+spray <- statcast_search(start_date = "2022-07-10",
+                        end_date = "2022-07-11",
+                        player_type = "batter")
+
+# filter out the NAs
+spray <- spray %>% 
+  filter(!is.na(hc_x), !is.na(hc_y))
+```
+
+```{r, fig.align='center', fig.width=7}
+spray %>% 
+  ggplot(aes(x = hc_x, y = -hc_y)) +
+  geom_point(alpha = 0.5) +
+  coord_fixed(ratio = 1) +
+  theme_bw() 
+spray %>% 
+  ggplot(aes(x = hc_x - 125.42, y = 198.27 - hc_y, color = stand)) + # look at the axis to see the difference
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
+  labs(title = "Batted Ball Location", x = "Horizontal Location", y = "Vertical Location") +
+  coord_fixed(ratio = 1) +
+  theme_bw() 
+```
+
+```{r, include=FALSE}
+spray2 <- spray %>% 
+  mutate(phi = atan((hc_x - 125.42) / (198.27 - hc_y)))
+spray2 <- spray2 %>% add_column(spray_angle = NA)
+
+#logit <- gam(spray_angle ~ s(launch_speed, launch_angle, phi), data = spray2)
+```
+
+
+
+```{r, message=FALSE, warning=FALSE, fig.align='center', fig.width=7}
+spray %>% 
+  ggspraychart(x_value = "hc_x", y_value = "hc_y")
+```
+
+need to look at more
+
+
+```{r, message=FALSE, warning=FALSE, fig.align='center', fig.width=5}
+library(CalledStrike)
+sa_plot(spray)
+sa_contour(spray)
+```
+
+
+## Animated Graphs (?)
+
+
+
+

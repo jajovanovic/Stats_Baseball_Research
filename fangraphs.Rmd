@@ -123,7 +123,7 @@ judge_filtered <- judge %>%
   dplyr::select(PlayerName, Date, Opp, Pos, AB:H, HR:BB, SO, `BB%`:BABIP, wOBA, EV:`HardHit%`)
 ```
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
 judge_filtered %>% 
   sample_n(15) %>% 
   kable() %>% 
@@ -137,6 +137,7 @@ judge_filtered %>%
   geom_point(alpha = 0.6) +
   labs(title = "Aaron Judge Batting", 
        x = "Exit Velocity", y = "Launch Angle", color = "RBI") +
+  scale_color_viridis_d() +
   theme_bw()
 ```
 

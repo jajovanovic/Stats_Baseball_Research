@@ -1,5 +1,6 @@
 ---
-title: "Joins"
+title: "Restructuring Data"
+subtitle: "Pivots and Joins"
 output: html_document
 date: ''
 ---
@@ -25,6 +26,15 @@ library(knitr)
 library(kableExtra)
 ```
 
+Sometimes data may not come organized or formatted in the way we would like. The good thing is there are lots of functions that can be used to restructure data.
+
+## Pivots
+
+A **pivot** is useful for converting data to wide or long format. `pivot_longer()` will take multiple columns and turn it into one variable. `pivot_wider()` takes a column and converts it to multiple different variables. A step-by-step breakdown of pivots can be found in [section 12.3](https://r4ds.had.co.nz/tidy-data.html?q=pivot#pivoting) of _R for Data Science_.
+
+We will practice pivoting in the example below. 
+
+## Joins
 
 **Joins** are helpful for combining two separate datasets. They are joined based on the keys, which can be specified by the coder. For now we will refer to the two data frames as `x` and `y`. There are four types of joins:
 
@@ -33,25 +43,28 @@ library(kableExtra)
 - `right_join()` :  keeps all observations in `y`
 - `full_join()` :  keeps all observations in `x` and `y`
 
+```{r, fig.align='center', fig.width=6, echo=FALSE}
+include_graphics("joins_visual.png")
+```
+
+[Chapter 13](https://r4ds.had.co.nz/relational-data.html) of _R for Data Science_ has a more thorough explanation of joins. 
+
 The join functions are part of the **dplyr** library. This package is in the **tidyverse**, so it will automatically be loaded if the tidyverse is loaded.
 
 ```{r, message=FALSE, warning=FALSE}
 library(dplyr)
-library(tidyverse)
 set.seed(2023)
 ```
 
 ### Example
 
-We will practice joins using the **Lahman** package.
+We will practice pivoting and joins using the [**Lahman**](https://cran.r-project.org/web/packages/Lahman/Lahman.pdf) package.
 
 ```{r}
 library(Lahman)
 ```
 
 Say we want to join the `Batting` and `Fielding` tables. Both of them have over 100,000 observations, so let's filter it down to only look at the 2021 season.
-
-**NOTE:** do we want to use `Batting` or `battingStats`?
 
 ```{r}
 batting21 <- Batting %>% 
@@ -72,7 +85,7 @@ batting21 %>%
   kable_styling("striped") %>% 
   scroll_box(width = "100%")
 ```
-The data has 29 variables and 1706 observations.
+The data has `r dim(batting21)[2]` variables and `r dim(batting21)[1]` observations.
 
 
 **fielding21**
@@ -83,46 +96,54 @@ fielding21 %>%
   kable_styling("striped") #%>% 
   #scroll_box(width = "100%")
 ```
-The data has 18 variables and 2312 observations.
+The data has `r dim(fielding21)[2]` variables and `r dim(fielding21)[1]` observations.
 
 ```{r, include=FALSE}
-Fielding %>%  
-  pivot_wider(names_from = POS, values_from = InnOuts) %>%  
-  select(playerID:lgID, SS:P) %>%  
-  filter(playerID == "lemahdj01") %>%  
-  summarize(`2B` = max(`2B`, na.rm = TRUE),            
-    `1B` = max(`1B`, na.rm = TRUE),            
-    `3B` = max(`3B`, na.rm = TRUE),            
-    .by = c(playerID, yearID, stint))
+# Fielding %>%  
+#   pivot_wider(names_from = POS, values_from = InnOuts) %>%  
+#   select(playerID:lgID, SS:P) %>%  
+#   filter(playerID == "lemahdj01") %>%  
+#   summarize(`2B` = max(`2B`, na.rm = TRUE),            
+#     `1B` = max(`1B`, na.rm = TRUE),            
+#     `3B` = max(`3B`, na.rm = TRUE),            
+#     .by = c(playerID, yearID, stint))
 ```
 
 Before joining these tables, we are going to compute a summarized version of the fielding data. 
 
 The `pivot_wider()` function changes the setup of the data by increasing the number of columns and decreasing the number of rows. This is in the **tidyr** package, which is part of the **tidyverse**.
+
+```{r}
+library(tidyr)
+```
+
 `names_from` specifies which existing column to use for the new column names. In this case it is 'POS' - instead of having one column for position, each different position will now have their own column. `values_from` says what values should be in those new columns. In this example that is 'InnOuts' - the data values in the newly created columns are how many outs a player played in said position. 
 
 ```{r, message=FALSE, warning=FALSE}
-fielding21_s <- fielding21 %>%  
+fielding21_wide <- fielding21 %>%  
   pivot_wider(names_from = POS, values_from = InnOuts) %>% 
-  select(playerID:lgID, SS:P) %>%  
-  summarize(`1B` = max(`1B`, na.rm = TRUE),            
-    `2B` = max(`1B`, na.rm = TRUE),            
-    `3B` = max(`3B`, na.rm = TRUE), 
-     SS = max(SS, na.rm = TRUE), 
-     #C = max(C, na.rm = TRUE),
-     OF = max(OF, na.rm = TRUE), 
-     P = max(P, na.rm = TRUE), 
-    .by = c(playerID, yearID, stint))
+  select(playerID:lgID, P:`2B`) %>% 
+  replace_na(list(C = 0, `1B` = 0, `2B` = 0, `3B` = 0, 
+                  SS = 0, P = 0, OF = 0)) %>%
+  summarize(Inn_1B = sum(`1B`),            
+            Inn_2B = sum(`2B`),            
+            Inn_3B = sum(`3B`), 
+            Inn_SS = sum(SS), 
+            Inn_C = sum(C),
+            Inn_OF = sum(OF), 
+            Inn_P = sum(P), 
+            .by = c(playerID, yearID, stint, teamID))
 ```
-It keeps giving an error when I include "C". Not sure why since it is the same code as all the other positions.
+**NOTE:** InnOuts is the number of outs 
+
 
 ```{r, echo=FALSE}
-fielding21_s %>% 
+fielding21_wide %>% 
   sample_n(6) %>% 
   kable() %>% 
   kable_styling("striped")
 ```
-This data frame has 9 variables and 1697 observations.
+This data frame has `r dim(fielding21_wide)[2]` variables and `r dim(fielding21_wide)[1]` observations.
 
 
 **NOTE:** still have to do the part about figuring out a players primary position
@@ -134,7 +155,7 @@ Now we are ready to practice some joins!
 Remember, a key must be present in both datasets to be joined. There are three columns that overlap between the two: 'playerID', 'yearID', and 'stint'. We will specify that these variables are the keys in the `join_by` argument.
 
 ```{r}
-join_inner <- inner_join(batting21, fielding21_s, by = join_by(playerID, yearID, stint))
+join_inner <- inner_join(batting21, fielding21_wide, by = join_by(playerID, yearID, stint))
 ```
 
 ```{r, echo=FALSE}
@@ -145,14 +166,14 @@ join_inner %>%
   scroll_box(width = "100%")
 ```
 
-This creates a new data frame with 35 variables and 1697 observations. It is the same amount of rows as `fielding21_s` - the _smaller_  dataset. 
+This creates a new data frame with `r dim(join_inner)[2]` variables and `r dim(join_inner)[1]` observations. It is the same amount of rows as `fielding21_wide`, the _smaller_  dataset. 
 
 #### Left Join
 
 The code for each type of join is identical, besides the first word of the join function.
 
 ```{r}
-join_left <- left_join(batting21, fielding21_s, by = join_by(playerID, yearID, stint))
+join_left <- left_join(batting21, fielding21_wide, by = join_by(playerID, yearID, stint))
 ```
 
 ```{r, echo=FALSE}
@@ -163,12 +184,12 @@ join_left %>%
   scroll_box(width = "100%")
 ```
 
-This creates a new data frame with 35 variables and 1706 observations. It is the same amount of rows as `batting21`, the _left_  dataset. 
+This creates a new data frame with `r dim(join_left)[2]` variables and `r dim(join_left)[2]` observations. It is the same amount of rows as `batting21`, the _left_  dataset. 
 
 #### Right Join
 
 ```{r}
-join_right <- right_join(batting21, fielding21_s, by = join_by(playerID, yearID, stint))
+join_right <- right_join(batting21, fielding21_wide, by = join_by(playerID, yearID, stint))
 ```
 
 ```{r, echo=FALSE}
@@ -179,12 +200,12 @@ join_right %>%
   scroll_box(width = "100%")
 ```
 
-This creates a new data frame with 35 variables and 1706 observations. It is the same amount of rows as `fielding21_s`, the _right_  dataset. 
+This creates a new data frame with `r dim(join_right)[2]` variables and `r dim(join_right)[2]` observations. It is the same amount of rows as `fielding21_wide`, the _right_  dataset. 
 
 #### Full Join
 
 ```{r}
-join_full <- full_join(batting21, fielding21_s, by = join_by(playerID, yearID, stint))
+join_full <- full_join(batting21, fielding21_wide, by = join_by(playerID, yearID, stint))
 ```
 
 ```{r, echo=FALSE}
@@ -195,7 +216,7 @@ join_full %>%
   scroll_box(width = "100%")
 ```
 
-This creates a new data frame with 35 variables and 1706 observations. It is the same amount of rows as as `batting21`, the _larger_  dataset. 
+This creates a new data frame with `r dim(join_full)[2]` variables and `r dim(join_full)[2]` observations. It is the same amount of rows as as `batting21`, the _larger_  dataset. 
 
 ### Another Example
 
@@ -218,7 +239,7 @@ pitching16 %>%
   kable_styling("striped") %>% 
   scroll_box(width = "100%")
 ```
-The data has 30 variables and 824 observations.
+The data has `r dim(pitching16)[2]` variables and `r dim(pitching16)[1]` observations.
 
 **salaries16**
 ```{r, echo=FALSE}
@@ -227,7 +248,7 @@ salaries16 %>%
   kable() %>% 
   kable_styling("striped", full_width = FALSE)
 ```
-The data has 5 variables and 853 observations.
+The data has `r dim(salaries16)[2]` variables and `r dim(salaries16)[1]` observations.
 
 The common columns are 'playerID', 'yearID', and 'teamID', and 'leagueID'.
 Let's see what happens if we do not use all four of these variables as keys while joining. 
@@ -266,7 +287,11 @@ There are no repeat columns! Whenever the data frames you want to join share col
 
 Here's a graph created from the joined data. 
 
-```{r, fig.align='center', fig.width=7, echo=FALSE}
+```{r, include=FALSE}
+library(ggplot2)
+```
+
+```{r, fig.align='center', fig.width=7, include=FALSE}
 join_all_keys %>% 
   ggplot(aes(x = IPouts, y = salary, fill = IPouts)) +
   geom_col() +
@@ -276,4 +301,145 @@ join_all_keys %>%
   theme_bw() +
   theme(legend.position = "none")
 ```
+
+
+```{r, fig.align='center', fig.width=7, echo=FALSE, message=FALSE, warning=FALSE}
+join_all_keys %>% 
+  ggplot(aes(x = IPouts, y = salary, color = IPouts)) +
+  geom_point() +
+  geom_smooth(se = FALSE) +
+  labs(title = "Pitcher Salary by Outs Pitched", 
+       x = "Outs Pitched", y = "Salary") +
+  scale_color_viridis_c() +
+  scale_y_continuous(labels = scales::label_dollar()) +
+  theme_bw() +
+  theme(legend.position = "none")
+```
+
+
+**QUESTION:** where do we want to put the primary position code?
+
+```{r, message=FALSE, warning=FALSE}
+fielding21 %>%
+  select(playerID:InnOuts) %>%
+  group_by(playerID, stint) %>%
+  arrange(desc(InnOuts), .by_group = TRUE) %>%
+  ungroup() %>%
+  mutate(InnProp = InnOuts / sum(InnOuts), 
+         POS_Q = ifelse(InnProp > 0.25, POS, NA),
+         .by = c(playerID, stint)) %>%
+  group_by(playerID, stint) %>%
+  summarize(Pos = paste(na.omit(POS_Q), collapse = "/")) %>% 
+  head(20) %>% 
+  kable() %>% 
+  kable_styling("striped") %>% 
+  scroll_box(height = "300px")
+```
+
+# Not for final version
+
+Figuring out why we're losing so much data when joining pitching and salaries
+
+```{r}
+app16 <- Appearances %>% 
+  filter(yearID == 2016)
+
+app16_p<- app16 %>% 
+  filter(G_p != 0) 
+```
+824 pitchers in 2016 with at least one recorded game
+
+
+```{r}
+try <- left_join(app16_p, salaries16, join_by(playerID, yearID, teamID, lgID))
+
+try2 <- try %>% 
+  dplyr::select(-(G_c:G_pr)) %>%
+  mutate(pay = case_when(!is.na(salary) ~ 'Yes',
+                         is.na(salary) ~ 'No'))
+```
+Half of the pitchers don't have a recorded salary.
+
+```{r}
+try2 %>% 
+  filter(pay == "No") %>% 
+  summarize(min(G_p), median(G_p), mean(G_p), max(G_p))
+try2 %>% 
+  filter(pay == "Yes") %>% 
+  summarize(min(G_p), median(G_p), mean(G_p), max(G_p),
+            min(salary), median(salary), mean(salary), max(salary))
+```
+Median and mean games pitched is much lower for pitchers without a recorded salary.
+
+```{r, include=FALSE}
+library(patchwork)
+```
+
+### Graphs {.tabset}
+
+#### Bar
+```{r, fig.align='center', fig.width = 10}
+a <- try2 %>% 
+  filter(pay == "No") %>% 
+  ggplot(aes(x = G_p)) +
+  geom_bar() +
+  labs(title = "pitchers with no recorded salary",
+       x = "games as pitcher") +
+  theme_bw()
+b <- try2 %>% 
+  filter(pay == "Yes") %>% 
+  ggplot(aes(x = G_p)) +
+  geom_bar() +
+  labs(title = "pitchers with recorded salary",
+       x = "games as pitcher") +
+  theme_bw()
+a + b
+```
+
+#### Density
+```{r, fig.align='center', fig.width=7}
+try2 %>% 
+  ggplot(aes(x = G_p, fill = pay)) +
+  geom_density(alpha = 0.5) +
+  labs(x = "games as pitcher") +
+  theme_bw()
+```
+
+
+#### Jitter
+```{r, fig.align='center', fig.width=7}
+try2 %>% 
+  ggplot(aes(x = factor(pay), y = G_p)) +
+  geom_jitter(alpha = 0.6, aes(color = pay),
+              position=position_jitter(0.2)) +
+  labs(x = "recorded salary", y = "games as pitcher") +
+  theme_bw()
+```
+
+### {-}
+
+```{r, fig.align='center', fig.width=7, message=FALSE, warning=FALSE}
+try2 %>% 
+  ggplot(aes(x = G_p, y = salary)) +
+  geom_point() +
+  geom_smooth() +
+  labs(x = "games as pitcher") +
+  scale_y_continuous(labels = scales::label_dollar()) +
+  theme_bw()
+```
+
+Look at previous season
+```{r}
+history <- Appearances %>% 
+  filter(playerID %in% app16_p$playerID, yearID >= 2006) %>% 
+  dplyr::select(-(G_c:G_pr))
+h_join <- left_join(history, salaries16, join_by(playerID, yearID, teamID, lgID))
+
+h_join2 <- h_join %>% 
+  filter(is.na(salary)) %>% 
+  group_by(playerID) %>% 
+  summarize(seasons = n()) 
+  
+```
+Most have the players have appeared in several seasons between 2006-2016
 
