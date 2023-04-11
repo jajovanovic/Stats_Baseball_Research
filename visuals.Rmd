@@ -24,14 +24,17 @@ library(tidyverse)
 library(baseballr)
 ```
 
+Lots of free resources... this is focusing on baseball specific...
+resources: ggplot2 book, r for data science
 
-## Scatter Plot
+
+## Strike Zone Plot
 
 Do want to use data from a specific player, across multiple games, or data from one specific game (like the conference case)?
 
-For now I'm using the same data as the statcast file - judge pitch-by-pitch
+statcast data for Judge entire 2023 season
 ```{r}
-judge <- statcast_search(start_date = "2022-06-15", end_date= "2022-07-15", playerid = 592450)
+judge <- statcast_search(start_date = "2022-04-05", end_date= "2022-10-23", playerid = 592450)
 ```
 note: there are variations in sz_top and sz_bot - theoretically they should all be the same because it is the same batter, so I'm going to take the average to generate the zone
 
@@ -57,6 +60,23 @@ geom_hitterR <- function(){
 ```
 This function is giving every player the same exact zone regardless of their height
 
+NEW:
+editing the functions
+```{r}
+geom_zone <- function(top = 3.75, bottom = 1.5){
+  geom_rect(xmin=-.7083, xmax=.7083, ymin=bottom, ymax=top,
+            alpha=0, color="gray60", linewidth=1.5)
+}
+
+# clean up - just specify x and y in aes instead of before
+geom_plate <- function(){
+  df <- data.frame(x = c(-.7083, .7083, .7083 ,0, -.7083), y = c(0, 0, -.25, -.5, -.25))
+  g <- geom_polygon(data=df, aes(x=x, y=y),fill="white", color="black", size=1.25)
+  g
+}
+```
+
+
 
 ```{r, include=FALSE}
 judge %>% 
@@ -73,18 +93,142 @@ judge %>%
 
 ```{r, fig.align='center'}
 judge %>% 
+  filter(description %in% c("ball", "called_strike"), !is.na(sz_top), !is.na(sz_bot)) %>% 
   ggplot() +
   geom_point(aes(x = plate_x, y = plate_z, color = p_throws), alpha = 0.5) +
-  geom_rect(aes(xmin = -.7083, xmax = .7083, ymin = mean(sz_bot), ymax = mean(sz_top)),
-            alpha = 0, color = "darkblue", linewidth = 1) +
+  geom_rect(aes(xmin = -.7083, xmax = .7083, ymin = median(sz_bot), ymax = median(sz_top)),
+            alpha = 0, color = "gray60", linewidth = 1) +
   #geom_hitterR() +
   #scale_color_manual(values = c("turquoise4", "mediumpurple")) +
-  scale_color_manual(values = c("slategrey", "lightseagreen")) +
+  #scale_color_manual(values = c("slategrey", "lightseagreen")) +
+  scale_color_manual(values = c("lightskyblue", "cornflowerblue")) +
   coord_fixed(ratio = 1) + # keeps the ratio of the graph fixed
   theme_bw()
+judge %>% 
+  filter(description %in% c("ball", "called_strike"), !is.na(sz_top), !is.na(sz_bot)) %>% 
+  ggplot() +
+  geom_point(aes(x = plate_x, y = plate_z, color = p_throws), alpha = 0.5) +
+  geom_rect(aes(xmin = -.7083, xmax = .7083, ymin = median(sz_bot), ymax = median(sz_top)),
+            alpha = 0, color = "gray60", linewidth = 1) +
+  #geom_hitterR() +
+  #scale_color_manual(values = c("turquoise4", "mediumpurple")) +
+  #scale_color_manual(values = c("slategrey", "lightseagreen")) +
+  scale_color_manual(values = c("lightskyblue", "cornflowerblue")) +
+  coord_fixed(ratio = 1) + # keeps the ratio of the graph fixed
+  theme_bw() +
+  facet_wrap(~p_throws)
+```
+NEW: take median instead
+
+
+```{r}
+judge %>% 
+  filter(description %in% c("ball", "called_strike"), !is.na(sz_top), !is.na(sz_bot)) %>% 
+  summarize(median(sz_top), median(sz_bot))
+
+judge_filter <- judge %>% 
+  filter(description %in% c("ball", "called_strike"), !is.na(sz_top), !is.na(sz_bot))
+
+judge_filter %>% 
+  filter(description %in% c("ball", "called_strike"), !is.na(sz_top), !is.na(sz_bot)) %>%
+  ggplot() +
+  geom_point(aes(x = plate_x, y = plate_z, color = type), alpha = 0.5) +
+  geom_rect(aes(xmin = -.7083, xmax = .7083, ymin = median(sz_bot), ymax = median(sz_top)),
+            alpha = 0, color = "gray60", linewidth = 1) +
+  labs(title = "Called Strike Zone") +
+  #geom_hitterR() +
+  #scale_color_manual(values = c("turquoise4", "mediumpurple")) +
+  #scale_color_manual(values = c("slategrey", "lightseagreen")) +
+  scale_color_manual(values = c("lightskyblue", "cornflowerblue")) +
+  coord_fixed(ratio = 1) + # keeps the ratio of the graph fixed
+  theme_bw() +
+  facet_wrap(~type)
+```
+TO DO: check judge filter - do we want to include anything else other than "ball" and "called_strike"?
+
+
+```{r}
+calc_sz <- judge_filter %>% 
+  mutate(true = case_when(plate_z > sz_top | plate_z < sz_bot ~ "ball",
+                          plate_x > .7083 | plate_x < -.7083 ~ "ball",
+                          TRUE ~ "strike"))
+
+calc_sz %>% 
+  filter(description %in% c("ball", "called_strike"), !is.na(sz_top), !is.na(sz_bot)) %>%
+  ggplot() +
+  geom_point(aes(x = plate_x, y = plate_z, color = true), alpha = 0.5) +
+  geom_rect(aes(xmin = -.7083, xmax = .7083, ymin = median(sz_bot), ymax = median(sz_top)),
+            alpha = 0, color = "gray60", linewidth = 1) +
+  labs(title = "Called Strike Zone") +
+  scale_color_manual(values = c("lightskyblue", "cornflowerblue")) +
+  coord_fixed(ratio = 1) + # keeps the ratio of the graph fixed
+  theme_bw() +
+  facet_wrap(~type)
 ```
 
+
 This doesn't feel right, the zone looks really small
+
+```{r}
+library(ggforce)
+```
+
+
+```{r}
+judge_filter %>% 
+  ggplot(aes(x = plate_x, y = plate_z)) +
+  geom_point(aes(color = type), alpha = 0.5) +
+  geom_zone(top = median(judge_filter$sz_top), bottom = median(judge_filter$sz_bot)) +
+  geom_mark_hull(aes(fill = type, filter = type != "B"), alpha = 0) +
+  theme_bw() +
+  facet_wrap(~type)
+
+
+  # geom_point(aes(x = plate_x, y = plate_z, color = type), alpha = 0.5) +
+  # geom_rect(aes(xmin = -.7083, xmax = .7083, ymin = median(sz_bot), ymax = median(sz_top)),
+  #           alpha = 0, color = "gray60", linewidth = 1) +
+  # labs(title = "Called Strike Zone") +
+```
+TO DO: figure out why there's such a wide gap between the line and the points
+
+**Contour Plots**
+
+Couldn't figure out how to get `geom_contour()` to work - what should 'z' be?
+reference: <https://ggplot2.tidyverse.org/reference/geom_contour.html>
+
+```{r, include=FALSE}
+# judge_filter %>% 
+#   ggplot(aes(x = plate_x, y = plate_z)) +
+#   geom_contour() +
+#   theme_bw()
+```
+
+
+
+```{r, fig.align='center', fig.width=7}
+judge_filter %>% 
+  ggplot(aes(x = plate_x, y = plate_z)) +
+  geom_density_2d() +
+  theme_bw()
+judge_filter %>% 
+  ggplot(aes(x = plate_x, y = plate_z)) +
+  geom_density_2d_filled(alpha = 0.5) +
+  theme_bw()
+judge_filter %>% 
+  ggplot(aes(x = plate_x, y = plate_z)) +
+  geom_density_2d(aes(color = type)) +
+  #geom_point(alpha = 0.3) +
+  geom_zone() +
+  theme_bw()
+judge_filter %>% 
+  ggplot(aes(x = plate_x, y = plate_z)) +
+  geom_density_2d_filled(alpha = 0.5) +
+  theme_bw() +
+  facet_wrap(~type)
+```
+reference: <https://ggplot2.tidyverse.org/reference/geom_density_2d.html#ref-examples>
+
+
 
 ## Heat Map
 
@@ -98,18 +242,36 @@ library(Lahman)
 records <- Teams %>% 
   filter(yearID >= 2012)
 
+# not faceted
 records %>% 
   group_by(yearID, franchID) %>% 
   mutate(win_perc = W/G) %>% 
-  ggplot(aes(x = franchID, y = yearID, fill = win_perc)) +
+  ggplot(aes(x = yearID, y = franchID, fill = win_perc)) +
   geom_tile() +
-  labs(x = "Team", y = "Year", fill = "Winning \nPercentage") +
-  scale_fill_viridis_c() +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  labs(x = "Year", y = "Team", fill = "Winning \nPercentage") +
+  scale_fill_gradient2(mid = "white", low = "cornflowerblue", high = "lightseagreen", midpoint = 0.5) +
+  theme_classic() #+
+  #facet_grid(~lgID, scales = "free_y")
+  #facet_wrap(~lgID, scales = "free_y")
+
+# faceted
+records %>% 
+  group_by(yearID, franchID) %>% 
+  mutate(win_perc = W/G) %>% 
+  ggplot(aes(x = yearID, y = franchID, fill = win_perc)) +
+  geom_tile() +
+  labs(x = "Year", y = "Team", fill = "Winning \nPercentage") +
+  scale_fill_gradient2(mid = "white", low = "cornflowerblue", high = "lightseagreen", midpoint = 0.5) +
+  theme_classic() +
+  #facet_grid(~lgID, scales = "free_y")
+  facet_wrap(~lgID, scales = "free_y")
 ```
 
+NEW: coord_flip, find divergent color scale, maybe play around with ranking it
+
 Using 2012 because that's when the Marlins first show
+
+Weekend update: one issue with faceting is the Astros show up twice because they switched to the AL in 2013
 
 ## Spray Angle
 
@@ -161,6 +323,31 @@ need to look at more
 library(CalledStrike)
 sa_plot(spray)
 sa_contour(spray)
+```
+
+NEW: 
+Create function to make lines for the field on a spray chart
+
+```{r}
+spray_chart <- function(...) {
+  ggplot(...) +
+    geom_curve(x = 33, xend = 223, y = -100, yend = -100, curvature = -.65) +
+    geom_segment(x = 128, xend = 33, y = -208, yend = -100) +
+    geom_segment(x = 128, xend = 223, y = -208, yend = -100) +
+    geom_curve(x = 83, xend = 173, y = -155, yend = -156, curvature = -.65, linetype = "dotted") +
+    coord_fixed() +
+    scale_x_continuous(NULL, limits = c(25, 225)) +
+    scale_y_continuous(NULL, limits = c(-225, -25))
+}
+```
+
+function code from pg 271 of _Analyzing Baseball Data with R_
+
+```{r, fig.align='center', fig.width=7}
+spray %>% 
+  spray_chart(aes(x = hc_x, y = -hc_y)) +
+  geom_point(alpha = 0.5) +
+  theme_bw()
 ```
 
 
