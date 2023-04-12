@@ -120,8 +120,28 @@ judge %>%
 ```
 NEW: take median instead
 
-
+**Add variable for swing**
 ```{r}
+judge_swing <- judge %>% 
+  mutate(swing = case_when(description %in% c("swinging_strike", "swinging_strike_blocked", 
+                                              "foul", "foul_tip") ~ TRUE,
+                           TRUE ~ FALSE))
+```
+
+All pitches - faceted by if Judge swung or not
+```{r, fig.align='center', fig.width=7}
+judge_swing %>% 
+  ggplot(aes(x = plate_x, y = plate_z, color = swing)) +
+  geom_point(alpha = 0.5) +
+  geom_zone() +
+  scale_color_manual(values = c("lightskyblue", "darkorchid1")) +
+  theme_bw() +
+  coord_fixed(ratio = 1) +
+  facet_wrap(~swing)
+```
+
+
+```{r, fig.align='center', fig.width=7}
 judge %>% 
   filter(description %in% c("ball", "called_strike"), !is.na(sz_top), !is.na(sz_bot)) %>% 
   summarize(median(sz_top), median(sz_bot))
@@ -144,10 +164,11 @@ judge_filter %>%
   theme_bw() +
   facet_wrap(~type)
 ```
+
 TO DO: check judge filter - do we want to include anything else other than "ball" and "called_strike"?
 
 
-```{r}
+```{r, fig.align='center', fig.width=7}
 calc_sz <- judge_filter %>% 
   mutate(true = case_when(plate_z > sz_top | plate_z < sz_bot ~ "ball",
                           plate_x > .7083 | plate_x < -.7083 ~ "ball",
@@ -159,7 +180,7 @@ calc_sz %>%
   geom_point(aes(x = plate_x, y = plate_z, color = true), alpha = 0.5) +
   geom_rect(aes(xmin = -.7083, xmax = .7083, ymin = median(sz_bot), ymax = median(sz_top)),
             alpha = 0, color = "gray60", linewidth = 1) +
-  labs(title = "Called Strike Zone") +
+  labs(title = "Called Strike Zone Colored by Technical Strike Zone") +
   scale_color_manual(values = c("lightskyblue", "cornflowerblue")) +
   coord_fixed(ratio = 1) + # keeps the ratio of the graph fixed
   theme_bw() +
@@ -167,14 +188,12 @@ calc_sz %>%
 ```
 
 
-This doesn't feel right, the zone looks really small
-
 ```{r}
 library(ggforce)
 ```
 
 
-```{r}
+```{r, fig.align='center', fig.width=7}
 judge_filter %>% 
   ggplot(aes(x = plate_x, y = plate_z)) +
   geom_point(aes(color = type), alpha = 0.5) +
@@ -238,7 +257,7 @@ We will use the Lahman package to get each team's season record.
 library(Lahman)
 ```
 
-```{r, fig.align='center'}
+```{r, fig.align='center', fig.width=8}
 records <- Teams %>% 
   filter(yearID >= 2012)
 
@@ -324,6 +343,8 @@ library(CalledStrike)
 sa_plot(spray)
 sa_contour(spray)
 ```
+
+I think the CalledStrike functions are based on gam - should this go in visuals or modeling?
 
 NEW: 
 Create function to make lines for the field on a spray chart

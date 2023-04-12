@@ -1,0 +1,112 @@
+---
+title: "Modeling"
+output: html_document
+date: ''
+---
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300&family=Source+Sans+Pro&display=swap" rel="stylesheet">
+<style>
+
+body{
+font-family: 'Source Sans Pro', sans-serif;
+}
+
+</style>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+What do we want to be modeling?
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(Lahman)
+```
+
+
+### Linear Model
+
+We will use data from the Lahman package.
+```{r}
+bat <- battingStats() %>% 
+  filter(yearID >= 2012)
+```
+
+The `lm()` function is used to fit linear models. It requires a formula, following the format: response ~ predictor(s).
+
+#### One Variable
+
+```{r}
+model1 <- lm(R ~ PA, data = bat)
+summary(model1)
+```
+
+```{r, fig.align='center', fig.width=7}
+bat %>% 
+  ggplot(aes(x = PA, y = R)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm") +
+  theme_bw()
+```
+
+#### Multiple Variables
+
+Our goal is to model runs using plate appearances, batting average, and on-base plus slugging. The first step is removing any NA values from those variables.
+
+```{r}
+bat <- bat %>% 
+  filter(!is.na(PA), !is.na(BA), !is.na(OPS))
+```
+
+Now we can build the model. 
+
+```{r}
+model2 <- lm(R ~ PA + BA + OPS, data = bat)
+model2
+summary(model2)
+```
+
+
+### Predicting Winning Percentage
+(pg 95 of _Analyzing Baseball Data with R_)
+
+For this section we will be using the `Teams` table. 
+
+```{r}
+team_pred <- Teams %>% 
+  filter(yearID >= 2012)
+```
+
+
+Say we want to predict winning percentage. To do this we need to create two new variables: run differential (RD) and winning percentage (WPCT). Run differential is calculated with runs scored (R) and opponents runs scores (RA). Winning percentage needs the amount of wins and losses. 
+
+```{r}
+team_pred <- team_pred %>% 
+  mutate(RD = R - RA,
+         WPCT = W / (W + L))
+```
+
+Now it's time to build the model.
+```{r}
+model3 <- lm(WPCT ~ RD, data = team_pred)
+model3
+summary(model3)
+```
+
+```{r, fig.align='center', fig.width=7}
+team_pred %>% 
+  ggplot(aes(x = RD, y = WPCT)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm") +
+  theme_bw()
+```
+
+
+
+
+
+
+
