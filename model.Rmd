@@ -26,6 +26,102 @@ library(tidyverse)
 library(Lahman)
 ```
 
+## Simple Linear Regression 
+
+### Predicting Winning Percentage
+(pg 95 of _Analyzing Baseball Data with R_)
+
+For this section we will be using the `Teams` table. 
+
+```{r}
+team_pred <- Teams %>% 
+  filter(yearID >= 2012)
+```
+
+Say we want to predict winning percentage. To do this we need to create two new variables: run differential (RD) and winning percentage (WPCT). Run differential is calculated with runs scored (R) and opponents runs scores (RA). Winning percentage needs the amount of wins and losses. 
+
+```{r}
+team_pred <- team_pred %>% 
+  mutate(RD = R - RA,
+         WPCT = W / (W + L))
+```
+
+Now it's time to build the model. The `lm()` function is used to fit linear models. It requires a formula, following the format: response ~ predictor(s).
+
+```{r}
+model1 <- lm(WPCT ~ RD, data = team_pred)
+model1
+```
+
+The _intercept_ for this model is about 0.500. This means that teams are giving up and scoring the same amount of runs. The slope for this model is 0.0006267. There are 162 games in the MLB regular season. If we multiple the slope by 162 we get 0.1015, which equates to 1/10th of a win. For each additional difference the predicted wins goes up by 0.0006. This works out to about 0.1 wins. 
+
+```{r}
+summary(model1)
+```
+
+Another important thing to look at is the p-value. A p-value helps you decide how likely it is that the results were due to random chance. The most frequently used significance level is alpha = 0.5. Our model's p-value is 2.2e-16; that is much smaller than alpha. This suggests that run differential is helpful in predicting winning percentage. R-squared values are used to determine how well the model fits the data. For this model 84% of variability in winning percentage is explained by run differential. This should the exclusive method to assess model fit, but it gives us a good idea. 
+
+To visualize this data we can make a scatter plot and fit a line using `geom_smooth()`. If no method is specified, R will automatically fit the model it thinks is best. Since we fit a linear model above, the method should be "lm".
+
+```{r, fig.align='center', fig.width=7, message=FALSE, warning=FALSE}
+team_pred %>% 
+  ggplot(aes(x = RD, y = WPCT)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm") +
+  theme_bw()
+```
+
+
+## Multiple Linear Regression
+
+### Linear Weights
+
+We are going to predict runs using singles, doubles, triples, homeruns, strikeouts, non-strikeouts, stolen bases, and caught stealing. 
+? sac hits, sac flies
+maybe intentional walks, hit by pitch
+
+```{r}
+bat <- Batting %>% 
+  filter(yearID == 2021)
+```
+
+```{r}
+bat <- bat %>% 
+  mutate(X1B = H - X2B - X3B - HR,
+         nonSO = AB - H - SO - GIDP)
+```
+
+```{r}
+model2 <- lm(R ~ X1B + X2B + X3B + HR + SO + nonSO + SB + CS , data = bat)
+model2
+```
+
+Add sac hits and sac flies
+```{r}
+lm(R ~ X1B + X2B + X3B + HR + SO + nonSO + SB + CS  + SH + SF, data = bat)
+
+```
+Made the intercept negative and barely changed the others. 
+
+
+Add IBB to original model
+```{r}
+lm(R ~ X1B + X2B + X3B + HR + SO + nonSO + SB + CS + IBB, data = bat)
+```
+Intercept is now negative, triple decreased a bit more than others, SO is now positive, CS went down a lot.
+
+
+Add HBP to original model
+```{r}
+lm(R ~ X1B + X2B + X3B + HR + SO + nonSO + SB + CS + HBP, data = bat)
+```
+The biggest change was in CS.
+
+
+
+
+**OLD** - will be deleted
+
 
 ### Linear Model
 
@@ -40,8 +136,8 @@ The `lm()` function is used to fit linear models. It requires a formula, followi
 #### One Variable
 
 ```{r}
-model1 <- lm(R ~ PA, data = bat)
-summary(model1)
+model2 <- lm(R ~ PA, data = bat)
+summary(model2)
 ```
 
 ```{r, fig.align='center', fig.width=7}
@@ -57,52 +153,19 @@ bat %>%
 Our goal is to model runs using plate appearances, batting average, and on-base plus slugging. The first step is removing any NA values from those variables.
 
 ```{r}
-bat <- bat %>% 
+bat2 <- bat %>% 
   filter(!is.na(PA), !is.na(BA), !is.na(OPS))
 ```
 
 Now we can build the model. 
 
 ```{r}
-model2 <- lm(R ~ PA + BA + OPS, data = bat)
-model2
-summary(model2)
-```
-
-
-### Predicting Winning Percentage
-(pg 95 of _Analyzing Baseball Data with R_)
-
-For this section we will be using the `Teams` table. 
-
-```{r}
-team_pred <- Teams %>% 
-  filter(yearID >= 2012)
-```
-
-
-Say we want to predict winning percentage. To do this we need to create two new variables: run differential (RD) and winning percentage (WPCT). Run differential is calculated with runs scored (R) and opponents runs scores (RA). Winning percentage needs the amount of wins and losses. 
-
-```{r}
-team_pred <- team_pred %>% 
-  mutate(RD = R - RA,
-         WPCT = W / (W + L))
-```
-
-Now it's time to build the model.
-```{r}
-model3 <- lm(WPCT ~ RD, data = team_pred)
+model3 <- lm(R ~ PA + BA + OPS, data = bat2)
 model3
 summary(model3)
 ```
 
-```{r, fig.align='center', fig.width=7}
-team_pred %>% 
-  ggplot(aes(x = RD, y = WPCT)) +
-  geom_point(alpha = 0.5) +
-  geom_smooth(method = "lm") +
-  theme_bw()
-```
+
 
 
 

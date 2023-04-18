@@ -19,29 +19,43 @@ font-family: 'Source Sans Pro', sans-serif;
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r, include=FALSE}
+library(knitr)
+```
+
+
+Lots of free resources... this is focusing on baseball specific...
+resources: ggplot2 book, r for data science
+
+Most of the graphs we are going to create use pitch-by-pitch data. We will access Statcast data using the **baseballr** package. 
+
 ```{r, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(baseballr)
 ```
 
-Lots of free resources... this is focusing on baseball specific...
-resources: ggplot2 book, r for data science
+There are two main data frames that we will use.
 
-
-## Strike Zone Plot
-
-Do want to use data from a specific player, across multiple games, or data from one specific game (like the conference case)?
-
-statcast data for Judge entire 2023 season
+First, is data for Aaron Judge from the entire 2023 season:
 ```{r}
 judge <- statcast_search(start_date = "2022-04-05", end_date= "2022-10-23", playerid = 592450)
 ```
-note: there are variations in sz_top and sz_bot - theoretically they should all be the same because it is the same batter, so I'm going to take the average to generate the zone
 
+Second, is all data from a single game. The game chosen is from May 8, 2022 Seattle Mariners vs. Tampa Bay Rays.
 
-visualization functions from daniel:
+```{r}
+game <- statcast_search(start_date = "2022-05-08",
+                        end_date = "2022-05-08")
+game <- game %>% 
+  filter(home_team == "SEA")
+```
+
+A list of the Statcast variables and their definitions can be found [here](https://baseballsavant.mlb.com/csv-docs).
+
+## Strike Zone Plot
 
 ```{r, include=FALSE}
+# visualization functions from daniel:
 geom_zone <- function(){
   geom_rect(xmin=-.7083, xmax=.7083, ymin=1.5, ymax=3.75,
             alpha=0,color="black", fill="maroon", size=1.5, linetype="dotted")
@@ -57,95 +71,20 @@ geom_hitterR <- function(){
   g <- geom_polygon(data = df, aes(x = x, y = y), fill = "black")
   g
 }
-```
-This function is giving every player the same exact zone regardless of their height
-
-NEW:
-editing the functions
-```{r}
-geom_zone <- function(top = 3.75, bottom = 1.5){
-  geom_rect(xmin=-.7083, xmax=.7083, ymin=bottom, ymax=top,
-            alpha=0, color="gray60", linewidth=1.5)
-}
-
-# clean up - just specify x and y in aes instead of before
-geom_plate <- function(){
-  df <- data.frame(x = c(-.7083, .7083, .7083 ,0, -.7083), y = c(0, 0, -.25, -.5, -.25))
-  g <- geom_polygon(data=df, aes(x=x, y=y),fill="white", color="black", size=1.25)
-  g
-}
+# This function is giving every player the same exact zone regardless of their height
 ```
 
+One of the key parts of a strike zone plot is the strike zone. The `geom_rect()` function plots rectangles. It requires the arguments xmin, xmax, ymin, and ymax. 
+There are other arguments that are optional. Since we want the strike zone to be just the outline of the rectangle, alpha is set to 0.
 
+QUESTION: do I have to explain what alpha, linewidth, etc. are? Do I have to explain themes?
 
-```{r, include=FALSE}
-judge %>% 
-  ggplot(aes(x = plate_x, y = plate_z)) +
-  geom_point() +
-  geom_zone() +
-  theme_bw() +
-  theme(panel.background = element_rect(fill = "azure",
-                                            colour = "black",
-                                            size = 2, linetype = "blank"),
-            panel.grid.major = element_blank(), panel.grid.minor = element_blank()) 
+Here is graph of Aaron Judge's strike zone for pitches that were called a strike or ball by the umpire. 
+A subset of the `judge` data frame was made that only has balls, called_strikes, and that do not have a missing value for the strike zone height.
 
-```
-
-```{r, fig.align='center'}
-judge %>% 
-  filter(description %in% c("ball", "called_strike"), !is.na(sz_top), !is.na(sz_bot)) %>% 
-  ggplot() +
-  geom_point(aes(x = plate_x, y = plate_z, color = p_throws), alpha = 0.5) +
-  geom_rect(aes(xmin = -.7083, xmax = .7083, ymin = median(sz_bot), ymax = median(sz_top)),
-            alpha = 0, color = "gray60", linewidth = 1) +
-  #geom_hitterR() +
-  #scale_color_manual(values = c("turquoise4", "mediumpurple")) +
-  #scale_color_manual(values = c("slategrey", "lightseagreen")) +
-  scale_color_manual(values = c("lightskyblue", "cornflowerblue")) +
-  coord_fixed(ratio = 1) + # keeps the ratio of the graph fixed
-  theme_bw()
-judge %>% 
-  filter(description %in% c("ball", "called_strike"), !is.na(sz_top), !is.na(sz_bot)) %>% 
-  ggplot() +
-  geom_point(aes(x = plate_x, y = plate_z, color = p_throws), alpha = 0.5) +
-  geom_rect(aes(xmin = -.7083, xmax = .7083, ymin = median(sz_bot), ymax = median(sz_top)),
-            alpha = 0, color = "gray60", linewidth = 1) +
-  #geom_hitterR() +
-  #scale_color_manual(values = c("turquoise4", "mediumpurple")) +
-  #scale_color_manual(values = c("slategrey", "lightseagreen")) +
-  scale_color_manual(values = c("lightskyblue", "cornflowerblue")) +
-  coord_fixed(ratio = 1) + # keeps the ratio of the graph fixed
-  theme_bw() +
-  facet_wrap(~p_throws)
-```
-NEW: take median instead
-
-**Add variable for swing**
-```{r}
-judge_swing <- judge %>% 
-  mutate(swing = case_when(description %in% c("swinging_strike", "swinging_strike_blocked", 
-                                              "foul", "foul_tip") ~ TRUE,
-                           TRUE ~ FALSE))
-```
-
-All pitches - faceted by if Judge swung or not
-```{r, fig.align='center', fig.width=7}
-judge_swing %>% 
-  ggplot(aes(x = plate_x, y = plate_z, color = swing)) +
-  geom_point(alpha = 0.5) +
-  geom_zone() +
-  scale_color_manual(values = c("lightskyblue", "darkorchid1")) +
-  theme_bw() +
-  coord_fixed(ratio = 1) +
-  facet_wrap(~swing)
-```
-
+`geom_point()` is used to make scatter plots. I am mapping plate_x to the x-axis and plate_z to the y-axis. Since the color is based on a variable (in this case if the call was a ball or a strike) it needs to go inside of aes(). `geom_rect()` makes the box. `labs()` lets you change things like the title, subtitle, axis labels. If you want the graph to graph to use specific colors use the `scale_color_manual()` function. A list of colors can be found [here](http://www.stat.columbia.edu/~tzheng/files/Rcolor.pdf). `coord_fixed()` keeps the ratio of the graph fixed regardless of the size of the graph. `facet_wrap()` splits the plots by whatever variable is specified. In this case it split so balls and strikes each have their own separate graph.
 
 ```{r, fig.align='center', fig.width=7}
-judge %>% 
-  filter(description %in% c("ball", "called_strike"), !is.na(sz_top), !is.na(sz_bot)) %>% 
-  summarize(median(sz_top), median(sz_bot))
-
 judge_filter <- judge %>% 
   filter(description %in% c("ball", "called_strike"), !is.na(sz_top), !is.na(sz_bot))
 
@@ -155,62 +94,204 @@ judge_filter %>%
   geom_point(aes(x = plate_x, y = plate_z, color = type), alpha = 0.5) +
   geom_rect(aes(xmin = -.7083, xmax = .7083, ymin = median(sz_bot), ymax = median(sz_top)),
             alpha = 0, color = "gray60", linewidth = 1) +
-  labs(title = "Called Strike Zone") +
-  #geom_hitterR() +
-  #scale_color_manual(values = c("turquoise4", "mediumpurple")) +
-  #scale_color_manual(values = c("slategrey", "lightseagreen")) +
+  labs(title = "Called Strike Zone", subtitle = "Aaron Judge 2023 Season",
+       x = "Horizontal Position", y = "Vertical Position") +
   scale_color_manual(values = c("lightskyblue", "cornflowerblue")) +
   coord_fixed(ratio = 1) + # keeps the ratio of the graph fixed
   theme_bw() +
+  theme(legend.position = "none") +
   facet_wrap(~type)
 ```
 
-TO DO: check judge filter - do we want to include anything else other than "ball" and "called_strike"?
 
 
-```{r, fig.align='center', fig.width=7}
+Instead of writing the full geom_rect code in every single graph we can make a function. The function can be added to a graph like any other layer (for example, geom_point()) by writing `geom_zone()`. 
+
+EXPLAIN FUNCTIONS MORE
+
+#### Creating Functions
+
+```{r}
+geom_zone <- function(top = 3.75, bottom = 1.5, linecolor = "gray60"){
+  geom_rect(xmin = -.7083, xmax = .7083, ymin = bottom, ymax = top,
+            alpha = 0, color = linecolor, linewidth = 1.5)
+}
+
+geom_plate <- function(){
+  df <- data.frame(x = c(-.7083, .7083, .7083 ,0, -.7083), y = c(0, 0, -.25, -.5, -.25))
+  g <- geom_polygon(data = df, aes(x = x, y = y), fill = "white", color = "black", linewidth = 1.25)
+  g
+}
+```
+
+Note: I added an argument for color to geom_zone because the gray was a little hard to see on the filled density plots
+
+IMPORTANT NOTE: the geom_zone function does not work if you use geom_zone(top = median(judge$sz_top)). I'm not sure how to directly fix the function, but have some ideas about how to approach this situation. 1) calculate the median and then write that number for top = (or bottom). 2) mutate variables for the median sz_top and median sz_bot
+
+```{r}
+judge %>% 
+  filter(!is.na(sz_top), !is.na(sz_bot)) %>% 
+  summarize(median(sz_top), median(sz_bot))
+```
+
+Here is another strike zone plot using our new function `geom_zone()`. This graph is faceted by infield shift and colored by outfield shift.
+
+```{r, fig.align='center'}
+judge %>% 
+  filter(description %in% c("ball", "called_strike"), !is.na(sz_top), !is.na(sz_bot), 
+         if_fielding_alignment != "") %>% 
+  ggplot() +
+  geom_point(aes(x = plate_x, y = plate_z, color = of_fielding_alignment), alpha = 0.5) +
+  geom_zone(top = 3.96, bottom = 1.87) +
+  labs(title = "Strike Zone Faceted by Infield Shift", subtitle = "Aaron Judge 2023 Season",
+       x = "Horizontal Position", y = "Vertical Position", color = "Outfield Shift") +
+  scale_color_manual(values = c("lightskyblue", "cornflowerblue")) +
+  coord_fixed() +
+  theme_bw() +
+  facet_wrap(~if_fielding_alignment)
+```
+
+**Adding in Variables**
+
+There are some variables not currently present in the data frame that could be interesting to look at. The first is if Aaron Judge swung at the pitch ore not. We know Judge swung at swung at swinging strikes, fouls, or pitches hit into play. Using the `mutate()` function we can create a variable called 'swing' that returns TRUE if the pitch resulted in one of the conditions previous listed, or FALSE is it did not. The second new variable is for scoring position. If there was a runner on second and/or third base 'scoring_pos' will return TRUE. 
+
+
+```{r}
+judge_swing <- judge %>% 
+  mutate(swing = description %in% c("swinging_strike", "swinging_strike_blocked", 
+                                    "foul", "foul_tip", "hit_into_play"),
+         scoring_pos = !is.na(on_2b) | !is.na(on_3b))
+```
+
+
+
+Not sure what to label this - it is faceted by if there were runners in scoring position, colored by if Judge swung or not.
+```{r, fig.align='center', fig.width=7, message=FALSE, warning=FALSE}
+judge_swing %>% 
+  ggplot(aes(x = plate_x, y = plate_z, color = swing)) +
+  geom_point(alpha = 0.5) +
+  geom_zone() +
+  labs(title = "Strike Zone Faceted by Scoring Position", subtitle = "Aaron Judge 2023 Season",
+       x = "Horizontal Position", y = "Vertical Position", color = "Swing") +
+  scale_color_manual(values = c("lightskyblue", "darkorchid1")) +
+  theme_bw() +
+  coord_fixed(ratio = 1) +
+  facet_wrap(~scoring_pos)
+```
+
+The left graph shows pitches when no one was in scoring position. The right graph shows pitches when runner(s) were in scoring position.
+
+According to the official MLB rules the strike zone is the space above home plate between the top of the batter's shoulders and their knees. During the game there is no rectangle showing the umpire exactly what that strike zone is. Umpire's use their judgement for what they consider a strike or a ball. 
+Below is the creation of a variable, 'true', that determines if the pitch should have been called a ball or a strike. `case_when()` is used to tell R if certain conditions are met then return this. The first line of `case_when()` below is saying if 'plate_z' is greater (higher) than 'sz_top' OR 'plate_z' is less (lower) than 'sz_bot' return "ball". Here is a visual to help reinforce:
+
+```{r, fig.align='center', fig.width=3, echo=FALSE}
+include_graphics("case_when.png")
+```
+
+```{r}
 calc_sz <- judge_filter %>% 
   mutate(true = case_when(plate_z > sz_top | plate_z < sz_bot ~ "ball",
                           plate_x > .7083 | plate_x < -.7083 ~ "ball",
                           TRUE ~ "strike"))
+```
 
+```{r}
+# temporary
+calc_sz %>% 
+  filter(!is.na(sz_top), !is.na(sz_bot)) %>% 
+  summarise(median(sz_top), median(sz_bot))
+calc_sz <- calc_sz %>% 
+  mutate(med_sz_top = 3.96, med_sz_bot = 1.87)
+```
+
+```{r, fig.align='center', fig.width=7}
 calc_sz %>% 
   filter(description %in% c("ball", "called_strike"), !is.na(sz_top), !is.na(sz_bot)) %>%
-  ggplot() +
-  geom_point(aes(x = plate_x, y = plate_z, color = true), alpha = 0.5) +
-  geom_rect(aes(xmin = -.7083, xmax = .7083, ymin = median(sz_bot), ymax = median(sz_top)),
-            alpha = 0, color = "gray60", linewidth = 1) +
-  labs(title = "Called Strike Zone Colored by Technical Strike Zone") +
+  ggplot(aes(x = plate_x, y = plate_z, color = true)) +
+  geom_point(alpha = 0.5) +
+  geom_zone(top = calc_sz$med_sz_top, bottom = calc_sz$med_sz_bot) + 
+  labs(title = "Called Strike Zone Colored by Rule Book Strike Zone", subtitle = "Aaron Judge 2023 Season",
+       x = "Horizontal Position", y = "Vertical Position", color = "Rule Book \nStrike Zone \nCall") +
   scale_color_manual(values = c("lightskyblue", "cornflowerblue")) +
   coord_fixed(ratio = 1) + # keeps the ratio of the graph fixed
   theme_bw() +
   facet_wrap(~type)
 ```
 
+The left graph is what the umpire called as balls, and the right graph is what the umpire called as strikes.
 
-```{r}
+It would be interesting to see what the strike zone looks like according to the umpire's calls. To do this we need to load the **ggforce** library. 
+
+```{r, message=FALSE, warning=FALSE}
 library(ggforce)
 ```
 
+The function we need to use is`geom_mark_hull()`. Essentially it draws a line around the perimeter of the points. The 'expand' argument specifies how much space there should be between the points and line. The 'size' and 'color' arguments are about the appearance of the line. Following that are two functions, `xlim()` and `ylim()`, which can be used to manually specify the limits of each axis. 
 
-```{r, fig.align='center', fig.width=7}
+```{r, include=FALSE}
 judge_filter %>% 
   ggplot(aes(x = plate_x, y = plate_z)) +
   geom_point(aes(color = type), alpha = 0.5) +
   geom_zone(top = median(judge_filter$sz_top), bottom = median(judge_filter$sz_bot)) +
-  geom_mark_hull(aes(fill = type, filter = type != "B"), alpha = 0) +
+  geom_mark_hull(aes(fill = type, filter = type != "B"), alpha = 0,
+                 expand = unit(2, "mm"), show.legend = FALSE) +
   theme_bw() +
   facet_wrap(~type)
-
-
-  # geom_point(aes(x = plate_x, y = plate_z, color = type), alpha = 0.5) +
-  # geom_rect(aes(xmin = -.7083, xmax = .7083, ymin = median(sz_bot), ymax = median(sz_top)),
-  #           alpha = 0, color = "gray60", linewidth = 1) +
-  # labs(title = "Called Strike Zone") +
 ```
-TO DO: figure out why there's such a wide gap between the line and the points
 
-**Contour Plots**
+
+```{r, fig.align='center', fig.width=7, message=FALSE, warning=FALSE}
+judge_filter %>% 
+  filter(type == "S") %>% 
+  ggplot(aes(x = plate_x, y = plate_z)) +
+  geom_point(alpha = 0.5, color = "cornflowerblue") +
+  geom_zone(top = median(judge_filter$sz_top), bottom = median(judge_filter$sz_bot)) +
+  geom_mark_hull(expand = unit(2, "mm"), size = .8, color = "darkslateblue") +
+  labs(title = "Umpire Strike Zone", subtitle = "Aaron Judge 2023 Season",
+       x = "Horizontal Position", y = "Vertical Position") +
+  xlim(-1.5, 1.5) +
+  ylim(1, 4.5) +
+  coord_fixed(ratio = 1) +
+  theme_bw() 
+```
+
+Now let's try some strike zone plots with the Mariners vs. Rays game data. 
+
+```{r, include=FALSE}
+game %>% 
+  filter(type == "S") %>% 
+  ggplot(aes(x = plate_x, y = plate_z, color = pitch_name)) +
+  geom_point(alpha = 0.5) +
+  geom_zone() +
+  geom_mark_hull(aes(fill = type, filter = type != "B"), alpha = 0,
+                 expand = unit(2, "mm"), size = .8, color = "darkslateblue", show.legend = FALSE) +
+  labs(title = "Umpire Strike Zone by Pitch Type", subtitle = "Mariners vs. Rays - May 8, 2022",
+       x = "Horizontal Position", y = "Vertical Position") +
+  ylim(0.6, 4.5) +
+  coord_fixed(ratio = 1) +
+  theme_bw() +
+  theme(legend.position = "none") +
+  facet_wrap(~pitch_name, nrow = 2)
+```
+
+
+```{r, fig.align='center', fig.width=7}
+game %>% 
+  ggplot(aes(x = plate_x, y = plate_z, color = type)) +
+  geom_point(alpha = 0.5) +
+  geom_zone() +
+  geom_mark_hull(aes(color = type), 
+                 expand = unit(2, "mm"), size = .8, show.legend = FALSE) +
+  labs(title = "Strike Zone Plots by Pitch Type", subtitle = "Mariners vs. Rays - May 8, 2022",
+       x = "Horizontal Position", y = "Vertical Position", color = "Pitch Result") +
+  scale_color_manual(values = c("lightskyblue", "cornflowerblue", "darkorchid1")) +
+  coord_fixed(ratio = 1) +
+  theme_bw() +
+  #theme(legend.position = "none") +
+  facet_wrap(~pitch_name, nrow = 2)
+```
+
+## Contour Plot
 
 Couldn't figure out how to get `geom_contour()` to work - what should 'z' be?
 reference: <https://ggplot2.tidyverse.org/reference/geom_contour.html>
@@ -222,22 +303,13 @@ reference: <https://ggplot2.tidyverse.org/reference/geom_contour.html>
 #   theme_bw()
 ```
 
-
-
 ```{r, fig.align='center', fig.width=7}
 judge_filter %>% 
   ggplot(aes(x = plate_x, y = plate_z)) +
-  geom_density_2d() +
-  theme_bw()
-judge_filter %>% 
-  ggplot(aes(x = plate_x, y = plate_z)) +
   geom_density_2d_filled(alpha = 0.5) +
-  theme_bw()
-judge_filter %>% 
-  ggplot(aes(x = plate_x, y = plate_z)) +
-  geom_density_2d(aes(color = type)) +
-  #geom_point(alpha = 0.3) +
-  geom_zone() +
+  geom_zone(top = median(judge_filter$sz_top), bottom = median(judge_filter$sz_bot),
+            linecolor = "turquoise4") +
+  coord_fixed() +
   theme_bw()
 judge_filter %>% 
   ggplot(aes(x = plate_x, y = plate_z)) +
@@ -246,6 +318,56 @@ judge_filter %>%
   facet_wrap(~type)
 ```
 reference: <https://ggplot2.tidyverse.org/reference/geom_density_2d.html#ref-examples>
+
+
+```{r, include=FALSE}
+# temporary
+judge %>% 
+  filter(events == "home_run", !is.na(sz_top), !is.na(sz_bot)) %>% 
+  summarise(median(sz_top), median(sz_bot))
+```
+
+```{r, fig.align='center', fig.width=7}
+judge %>% 
+  filter(events == "home_run") %>% 
+  ggplot(aes(x = plate_x, y = plate_z)) +
+  geom_density_2d_filled(alpha = 0.5) +
+  xlim(-1.5, 1.5) +
+  ylim(1.5, 4.5) +
+  geom_zone(top = 3.97, bottom = 1.87, linecolor = "turquoise4") +
+  labs(title = "Contour Plot Aaron Judge Home Runs") +
+  coord_fixed() +
+  theme_bw()
+```
+
+I don't understand why geom_zone isn't working
+
+```{r}
+library(patchwork)
+```
+
+
+```{r, fig.align='center'}
+g1 <- judge %>% 
+  filter(!is.na(sz_top), !is.na(sz_bot)) %>% 
+  filter(description == "swinging_strike") %>% 
+  ggplot(aes(x = plate_x, y = plate_z)) +
+  geom_density_2d_filled(alpha = 0.5, show.legend = FALSE) +
+  geom_zone(top = 3.95, bottom = 1.87, linecolor = "turquoise4") +
+  labs(title = "Judge's Strike Zone", x = "Horizontal Position", y = "Vertical Position") +
+  coord_fixed() +
+  theme_bw() 
+g2 <- judge %>% 
+  filter(description == "swinging_strike") %>% 
+  ggplot(aes(x = plate_x, y = plate_z)) +
+  geom_density_2d_filled(alpha = 0.5, show.legend = FALSE) +
+  geom_zone(linecolor = "turquoise4") +
+  labs(title = "Default Strike Zone", x = "Horizontal Position", y = "Vertical Position") +
+  coord_fixed() +
+  theme_bw()
+g1 + g2
+```
+
 
 
 
@@ -259,8 +381,22 @@ library(Lahman)
 
 ```{r, fig.align='center', fig.width=8}
 records <- Teams %>% 
-  filter(yearID >= 2012)
+  filter(yearID >= 2013)
 
+# faceted
+records %>% 
+  group_by(yearID, franchID) %>% 
+  mutate(win_perc = W/G) %>% 
+  ggplot(aes(x = yearID, y = franchID, fill = win_perc)) +
+  geom_tile() +
+  labs(x = "Year", y = "Team", fill = "Winning \nPercentage") +
+  scale_fill_gradient2(mid = "white", low = "dodgerblue", high = "mediumseagreen", midpoint = 0.5) +
+  #scale_fill_gradient2(mid = "white", low = "royalblue", high = "turquoise4", midpoint = 0.5) +
+  theme_classic() +
+  facet_wrap(~lgID, scales = "free_y")
+```
+
+```{r, include=FALSE}
 # not faceted
 records %>% 
   group_by(yearID, franchID) %>% 
@@ -272,27 +408,10 @@ records %>%
   theme_classic() #+
   #facet_grid(~lgID, scales = "free_y")
   #facet_wrap(~lgID, scales = "free_y")
-
-# faceted
-records %>% 
-  group_by(yearID, franchID) %>% 
-  mutate(win_perc = W/G) %>% 
-  ggplot(aes(x = yearID, y = franchID, fill = win_perc)) +
-  geom_tile() +
-  labs(x = "Year", y = "Team", fill = "Winning \nPercentage") +
-  scale_fill_gradient2(mid = "white", low = "cornflowerblue", high = "lightseagreen", midpoint = 0.5) +
-  theme_classic() +
-  #facet_grid(~lgID, scales = "free_y")
-  facet_wrap(~lgID, scales = "free_y")
 ```
 
-NEW: coord_flip, find divergent color scale, maybe play around with ranking it
 
-Using 2012 because that's when the Marlins first show
-
-Weekend update: one issue with faceting is the Astros show up twice because they switched to the AL in 2013
-
-## Spray Angle
+## Spray Chart
 
 ```{r}
 spray <- statcast_search(start_date = "2022-07-10",
@@ -304,12 +423,17 @@ spray <- spray %>%
   filter(!is.na(hc_x), !is.na(hc_y))
 ```
 
-```{r, fig.align='center', fig.width=7}
+```{r, fig.align='center'}
 spray %>% 
-  ggplot(aes(x = hc_x, y = -hc_y)) +
-  geom_point(alpha = 0.5) +
-  coord_fixed(ratio = 1) +
-  theme_bw() 
+  ggplot(aes(x = hc_x, y = -hc_y, color = pitch_name)) +
+  geom_point(alpha = .5) +
+  labs(title = "Spray Chart Without Field Lines", subtitle = "Mariners vs. Rays - May 8, 2022", color = "Pitch") +
+  theme_classic() +
+  theme(axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank())
+```
+
+```{r, fig.align='center', fig.width=7, include=FALSE}
 spray %>% 
   ggplot(aes(x = hc_x - 125.42, y = 198.27 - hc_y, color = stand)) + # look at the axis to see the difference
   geom_point(alpha = 0.5) +
@@ -330,21 +454,18 @@ spray2 <- spray2 %>% add_column(spray_angle = NA)
 
 
 
-```{r, message=FALSE, warning=FALSE, fig.align='center', fig.width=7}
+```{r, message=FALSE, warning=FALSE, fig.align='center', fig.width=7, include=FALSE}
 spray %>% 
-  ggspraychart(x_value = "hc_x", y_value = "hc_y")
-```
+  ggspraychart(x_value = "hc_x", y_value = "hc_y") 
 
-need to look at more
-
-
-```{r, message=FALSE, warning=FALSE, fig.align='center', fig.width=5}
 library(CalledStrike)
 sa_plot(spray)
 sa_contour(spray)
 ```
 
 I think the CalledStrike functions are based on gam - should this go in visuals or modeling?
+
+#### Creating Functions
 
 NEW: 
 Create function to make lines for the field on a spray chart
@@ -364,15 +485,98 @@ spray_chart <- function(...) {
 
 function code from pg 271 of _Analyzing Baseball Data with R_
 
-```{r, fig.align='center', fig.width=7}
+```{r, fig.align='center', fig.width=7, message=FALSE, warning=FALSE}
 spray %>% 
   spray_chart(aes(x = hc_x, y = -hc_y)) +
+  geom_point(aes(color = pitch_name), alpha = .5) +
+  labs(title = "Spray Chart With Field Lines", subtitle = "Mariners vs. Rays - May 8, 2022", color = "Pitch") +
+  theme_classic() +
+  theme(axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank())
+```
+
+```{r, include=FALSE}
+judge %>% 
+  spray_chart(aes(x = hc_x, y = -hc_y)) +
+  geom_point(alpha = .5, aes(color = events)) +
+  # scale_color_hue(h = c(180, 270)) +
+  theme_classic() +
+  theme(axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank()) # +
+  # facet_wrap(~events)
+```
+
+```{r, fig.align='center', fig.width=7, message=FALSE, warning=FALSE}
+judge %>% 
+  filter(!(events %in% c("", "catcher_interf", "hit_by_pitch", "walk", "strikeout"))) %>% 
+  spray_chart(aes(x = hc_x, y = -hc_y)) +
+  geom_point(alpha = .5, aes(color = events)) +
+  labs(title = "Spray Chart by Outcome", subtitle = "Aaron Judge 2023 Season") +
+  theme_classic() +
+  theme(axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+        axis.title.y = element_blank(), axis.text.y = element_blank(), axis.ticks.y = element_blank()) +
+  facet_wrap(~events, nrow = 2)
+```
+grounded_into_double_play title is cut off, not sure how to fix it.
+
+
+### game data
+
+These are graphs I wasn't sure about if they should be included in earlier sections
+
+```{r, fig.align='center', fig.width=10}
+# game %>% 
+#   ggplot(aes(x = release_pos_x, y = release_pos_z, color = factor(pitcher))) +
+#   geom_point(alpha = 0.5) +
+#   labs(title = "Release Point", x = "Horizontal Release Position", y = "Vertical Release Position", color = "Pitcher") +
+#   theme_bw()
+game %>% 
+  ggplot(aes(x = release_pos_x, y = release_pos_z, color = factor(pitcher))) +
   geom_point(alpha = 0.5) +
+  labs(title = "Release Point", color = "Pitcher") +
+  theme_bw() +
+  facet_wrap(~pitch_name, nrow = 2)
+```
+
+```{r}
+pitcher_ids <- unique(game$pitcher)
+pitcher_names <- statcast_search_pitchers(start_date = "2022-05-08",
+                                          end_date = "2022-05-08",
+                                          pitcherid = pitcher_ids)
+
+# game2 <- game %>% 
+#   mutate(pitcher_name = case_when(game$pitcher %in% pitcher_names$pitcher ~ pitcher_names$player_name))
+```
+
+
+```{r, fig.align='center'}
+game %>% 
+  ggplot(aes(x = plate_x, y = plate_z, color = pitch_name)) +
+  geom_point(alpha = 0.5) +
+  geom_zone() +
+  coord_fixed() +
+  theme_bw() +
+  facet_wrap(~p_throws)
+```
+
+
+
+```{r, include=FALSE}
+game %>% 
+  filter(pitcher == 669923) %>% 
+  group_by(pitch_name) %>% 
+  ggplot(aes(x = pfx_x, y = pfx_z, color = pitch_name)) +
+  geom_point() +
+  geom_mark_hull(aes(fill = type, filter = type != "B"), alpha = 0,
+                 expand = unit(2, "mm"), size = .8) +
   theme_bw()
 ```
 
 
-## Animated Graphs (?)
+
+link to CalledStrike
+
+mention animated graphs
 
 
 
