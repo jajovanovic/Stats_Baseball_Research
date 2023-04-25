@@ -19,11 +19,11 @@ font-family: 'Source Sans Pro', sans-serif;
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-What do we want to be modeling?
-
 ```{r, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(Lahman)
+library(knitr)
+library(kableExtra)
 ```
 
 ## Simple Linear Regression 
@@ -34,11 +34,14 @@ library(Lahman)
 For this section we will be using the `Teams` table. 
 
 ```{r}
-team_pred <- Teams %>% 
-  filter(yearID >= 2012)
+team_pred <- Teams %>%
+  filter(yearID >= 2012, yearID < 2020)
+
+# team_pred <- Teams %>% 
+#   filter(yearID >= 2012, yearID !=2020)
 ```
 
-Say we want to predict winning percentage. To do this we need to create two new variables: run differential (RD) and winning percentage (WPCT). Run differential is calculated with runs scored (R) and opponents runs scores (RA). Winning percentage needs the amount of wins and losses. 
+Say we want to predict winning percentage **using a team's run differential**. To do this we need to create two new variables: run differential (RD) and winning percentage (WPCT). Run differential is calculated with runs scored (R) and **runs allowed** (RA). **Calculating** winning percentage **requires** the amount of wins and losses. 
 
 ```{r}
 team_pred <- team_pred %>% 
@@ -46,20 +49,45 @@ team_pred <- team_pred %>%
          WPCT = W / (W + L))
 ```
 
-Now it's time to build the model. The `lm()` function is used to fit linear models. It requires a formula, following the format: response ~ predictor(s).
+Now it's time to build the model. The `lm()` function is used to fit linear models. It requires a formula, following the format: response ~ predictor(s). A response variable is the variable we are trying to predict. Predictor variables are used to make predictions. In this example, we will predict a team's winning percentage (response) using its run differential (predictor).
 
 ```{r}
 model1 <- lm(WPCT ~ RD, data = team_pred)
 model1
 ```
 
-The _intercept_ for this model is about 0.500. This means that teams are giving up and scoring the same amount of runs. The slope for this model is 0.0006267. There are 162 games in the MLB regular season. If we multiple the slope by 162 we get 0.1015, which equates to 1/10th of a win. For each additional difference the predicted wins goes up by 0.0006. This works out to about 0.1 wins. 
+The general equation of a simple linear regression line is: $\hat{y} = b_0 + b_1  x$. **The symbols have the following meaning**:
+
+- $\hat{y}$ = predicted value of the response variable
+- $b_0$ = estimated y-intercept for the line
+- $b_1$ = estimated slope for the line
+- x = predictor value to plug in
+
+This output provides us with an equation we can use to predict a team's winning percentage based on their run differential:
+
+$$\text{Predicted Win Pct} = 0.500 + 0.00061 * \text{Run Diff}$$
+
+The **estimated y-intercept** for this model is 0.500. This means that we would predict a winning percentage of 0.500 for a team with a run differential of 0. In other words, teams who give up and score the same number of runs are predicted to be average. This makes a lot of sense for this example, but we will see later that y-intercept interpretations aren't always applicable like this.
+
+
+
+The slope for this model is 0.0006267. There are 162 games in the MLB regular season. If we multiple the slope by 162 we get 0.1015, which equates to 1/10th of a win. For each additional difference the predicted wins goes up by 0.0006. This works out to about 0.1 wins. 
+
+The **estimate slope** for our line is 0.00061. This tells us that our predicted winning percentage increases by 0.00061 for each additional run a team scores (or each fewer run they allow). Over a 162 game season, a change in winning percentage of 0.00061 is equivalent to around $162 * 0.00061 = 0.1$ wins. In other words, an increase of around 10 runs scored (or prevented) is associated with around 1 more win in a season.
+
+The `summary()` function can give us some additional information about our linear regression model. 
 
 ```{r}
 summary(model1)
 ```
 
-Another important thing to look at is the p-value. A p-value helps you decide how likely it is that the results were due to random chance. The most frequently used significance level is alpha = 0.5. Our model's p-value is 2.2e-16; that is much smaller than alpha. This suggests that run differential is helpful in predicting winning percentage. R-squared values are used to determine how well the model fits the data. For this model 84% of variability in winning percentage is explained by run differential. This should the exclusive method to assess model fit, but it gives us a good idea. 
+Another important thing to look at is the **p-value**. A p-value tells us how likely certain results would be to occur if "nothing was going on". We often compare a p-value to a pre-chosen significance level, alpha, to decide if our results would be unusual in a world where our variables weren't related to one another. The most frequently used significance level is alpha = 0.5. Our model's p-value is less than 2.2e-16, or 0.00000000000000022, which is much smaller than alpha. This suggests that run differential is helpful in predicting winning percentage _because results like this are incredibly unlikely to occur if the two variables are not related_. 
+
+
+
+**R-squared** values are used to describe how well the model fits the data. In this model, the R-squared value is 0.8862. This is saying that around 88.6% of variability in team winning percentage is explained by run differential.
+
+This should not be the exclusive method to assess model fit, but it helps give us a good idea. 
 
 To visualize this data we can make a scatter plot and fit a line using `geom_smooth()`. If no method is specified, R will automatically fit the model it thinks is best. Since we fit a linear model above, the method should be "lm".
 
@@ -76,97 +104,81 @@ team_pred %>%
 
 ### Linear Weights
 
-We are going to predict runs using singles, doubles, triples, homeruns, strikeouts, non-strikeouts, stolen bases, and caught stealing. 
-? sac hits, sac flies
-maybe intentional walks, hit by pitch
+We are going to predict runs using singles, doubles, triples, homeruns, walks, hit-by-pitches, strikeouts, non-strikeouts, stolen bases,caught stealing, and sacrifice flies. 
+
 
 ```{r}
-bat <- Batting %>% 
-  filter(yearID == 2021)
-```
-
-```{r}
-bat <- bat %>% 
+team_pred <- team_pred %>% 
   mutate(X1B = H - X2B - X3B - HR,
-         nonSO = AB - H - SO - GIDP)
+         nonSO = AB - H - SO)
 ```
 
 ```{r}
-model2 <- lm(R ~ X1B + X2B + X3B + HR + SO + nonSO + SB + CS , data = bat)
+model2 <- lm(R ~ X1B + X2B + X3B + HR + BB + HBP + SO + nonSO + SB + CS + SF, data = team_pred)
 model2
-```
-
-Add sac hits and sac flies
-```{r}
-lm(R ~ X1B + X2B + X3B + HR + SO + nonSO + SB + CS  + SH + SF, data = bat)
-
-```
-Made the intercept negative and barely changed the others. 
-
-
-Add IBB to original model
-```{r}
-lm(R ~ X1B + X2B + X3B + HR + SO + nonSO + SB + CS + IBB, data = bat)
-```
-Intercept is now negative, triple decreased a bit more than others, SO is now positive, CS went down a lot.
-
-
-Add HBP to original model
-```{r}
-lm(R ~ X1B + X2B + X3B + HR + SO + nonSO + SB + CS + HBP, data = bat)
-```
-The biggest change was in CS.
-
-
-
-
-**OLD** - will be deleted
-
-
-### Linear Model
-
-We will use data from the Lahman package.
-```{r}
-bat <- battingStats() %>% 
-  filter(yearID >= 2012)
-```
-
-The `lm()` function is used to fit linear models. It requires a formula, following the format: response ~ predictor(s).
-
-#### One Variable
-
-```{r}
-model2 <- lm(R ~ PA, data = bat)
 summary(model2)
 ```
 
-```{r, fig.align='center', fig.width=7}
-bat %>% 
-  ggplot(aes(x = PA, y = R)) +
-  geom_point(alpha = 0.5) +
-  geom_smooth(method = "lm") +
+Most of the p-values from this model have stars next to them. ** is significant at alpha = 0.001. *** is significant at alpha = 0.0001. The intercept's p-value is the only one without stars. A p-value of 0.205166 suggests that we may not need the the intercept. This makes sense since a team that does none of these things (the predictor variables) would score 0 runs. 
+
+Now let's try fitting a model with no intercept. We can accomplish this by putting "- 1" at the of the model equation.  
+
+```{r}
+model2 <- lm(R ~ X1B + X2B + X3B + HR + BB + HBP + SO + nonSO + SB + CS + SF - 1, data = team_pred)
+summary(model2)
+```
+
+This model's p-value is 2.2e-16, which is incredibly small. The R-squared value is 0.9992, meaning that 99.9% of variability in runs is explained by these 10 variables.
+
+Here is a table of the of each MLR variable and their slope:
+
+```{r}
+kable(model2$coefficients, col.names = "Coefficient") %>% kable_styling("striped")
+```
+
+
+```{r, include=FALSE}
+# model2_coef <- data.frame(Variable = names(model2$coefficients),
+#                           Coefficient = model2$coefficients)
+# kable(model2_coef) %>% kable_styling("striped")
+# row.names(model2_coef) <- NULL
+```
+
+
+We can use these coefficients to build a linear weights model. - FIGURE OUT WHY THIS ISN'T WORKING
+```{r, include=FALSE}
+# model3 <- lm(R ~ 0.3907(X1B) + 0.8513(X2B) + 1.037(X3B) + 1.460(HR) + 0.2689(BB) + 0.4267(HBP) - 0.0929(SO) - 0.0808(nonSO) + 0.1945(SB) - 0.5191(CS) + 0.5324(SF) - 1, data = team_pred)
+# 
+# lm(R ~ 0.3907*X1B + 0.8513*X2B + 1.037*X3B - 1, data = team_pred)
+# 
+# lm(R ~ X1B + X2B + X3B + HR + BB + HBP + SO + nonSO + SB + CS + SF - 1, data = team_pred, weight = c(model2_coef$Coefficient, 0))
+# Runs = 0.0081 + 0.3076(X1B) + 0.5255(X2B) + 1.0627(X3B) + 1.1939(HR) - 0.0049(SO) + 0.0199(nonSO) + 0.4311(SB) + 0.1054(CS)
+
+```
+
+
+
+To see how good this model is we will plot the predicted runs against the actual runs. The line represents a perfect model. 
+
+```{r, fig.align='center', fig.width=7, message=FALSE, warning=FALSE}
+team_pred %>% 
+  ggplot(aes(x = predict(model2), y = R)) +
+  geom_point() +
+  geom_abline(slope = 1, intercept = 0, color = "cornflowerblue", size = 1) +
+  labs(x = "Predicted Runs", y = "Actual Runs") +
   theme_bw()
 ```
 
-#### Multiple Variables
 
-Our goal is to model runs using plate appearances, batting average, and on-base plus slugging. The first step is removing any NA values from those variables.
-
-```{r}
-bat2 <- bat %>% 
-  filter(!is.na(PA), !is.na(BA), !is.na(OPS))
+Residual Plot:
+```{r, fig.align='center', fig.width=7, message=FALSE, warning=FALSE}
+model2 %>% 
+  ggplot(aes(x = .fitted, y = .resid)) +
+  geom_point() +
+  geom_hline(yintercept = 0, color = "cornflowerblue", size = 1) +
+  labs(title = "Residual Plot", x = "Fitted Values", y = "Residuals") +
+  theme_bw()
 ```
-
-Now we can build the model. 
-
-```{r}
-model3 <- lm(R ~ PA + BA + OPS, data = bat2)
-model3
-summary(model3)
-```
-
-
-
 
 
 
