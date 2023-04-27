@@ -197,8 +197,6 @@ Teams %>%
 
 Here are a few visualizations to help show the data available in the **Lahman** package.
 
-Below is a visualization for each table mentioned above
-
 #### Batting
 
 ```{r, fig.align='center', fig.width=7, echo=FALSE}

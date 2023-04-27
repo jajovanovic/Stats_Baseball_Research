@@ -64,13 +64,14 @@ sc_download %>%
 sc_download %>% 
   ggplot(aes(x = xwoba)) +
   geom_density(fill = "cornflowerblue", alpha = .5) +
-  theme_bw()
+  theme_bw() +
+  theme(text = element_text(family = "serif"))
 ```
 
 
 ## baseballr
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 library(baseballr)
 ```
 
@@ -94,7 +95,8 @@ judge %>%
   labs(x = "Description", y = "Pitch Type", color = "Release Speed") +
   scale_color_viridis_b() +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(text = element_text(family = "serif"))
 ```
 
 
@@ -107,7 +109,8 @@ judge %>%
   labs(x = "Description", y = "Pitch Type", color = "Release Speed") +
   scale_fill_viridis_b() +
   theme_classic() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(text = element_text(family = "serif"))
 ```
 
 
@@ -122,17 +125,6 @@ _Important note: the **Statcast** ID is not the same as the **FanGraphs** ID!_
 </div>
 </center>
 
-
-**attempt to get multiple seasons at once**
-```{r}
-mult <- statcast_search(start_date = "2022-06-15", end_date= "2022-07-15", playerid = c(592450, 519317))
-```
-This doesn't show both players, it only shows Judge (produces the same results as the previous code)
-
-```{r}
-years <- statcast_search(start_date = "2021-07-15", end_date= "2022-07-15", playerid = 592450)
-```
-This only shows 2021
 
 #### Leaderboards
 
@@ -152,16 +144,6 @@ sc_lead_evb %>%
   scroll_box(width = "100%")
 ```
 
-```{r, include=FALSE}
-sc_lead_evb %>% 
-  ggplot(aes(x = max_distance, y = max_hit_speed, color = avg_distance, size = avg_hit_speed)) +
-  geom_point(alpha = .5) +
-  labs(title = "Hitting Leaders", x = "Max Distance", y = "Max Hit Speed",
-       color = "Average Distance", size = "Average Hit Speed") +
-  scale_color_viridis_b() +
-  theme_bw()
-```
-
 
 ```{r, fig.align='center', fig.width=8, echo=FALSE}
 sc_lead_evb %>% 
@@ -176,7 +158,8 @@ sc_lead_evb %>%
        color = "Average Distance", size = "Average Hit Speed") +
   #xlim(375, 510) +
   scale_color_viridis_b() +
-  theme_bw()
+  theme_bw() +
+  theme(text = element_text(family = "serif"))
 ```
 
 
@@ -197,17 +180,4 @@ sc_lead_exp %>%
   scale_color_viridis_b() +
   theme_bw()
 ```
-
-
-```{r, include=FALSE}
-# not sure why this isn't working because it's the example from the website
-#playerid_lookup("Garcia", "Karim")
-```
-
-
-_Notes_
-
-- I tried to adjust the size of statcast search but it wouldn't respond
-- figure out if I can do multiple years at once or multiple players at once
-
 

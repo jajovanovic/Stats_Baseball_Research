@@ -98,17 +98,6 @@ fielding21 %>%
 ```
 The data has `r dim(fielding21)[2]` variables and `r dim(fielding21)[1]` observations.
 
-```{r, include=FALSE}
-# Fielding %>%  
-#   pivot_wider(names_from = POS, values_from = InnOuts) %>%  
-#   select(playerID:lgID, SS:P) %>%  
-#   filter(playerID == "lemahdj01") %>%  
-#   summarize(`2B` = max(`2B`, na.rm = TRUE),            
-#     `1B` = max(`1B`, na.rm = TRUE),            
-#     `3B` = max(`3B`, na.rm = TRUE),            
-#     .by = c(playerID, yearID, stint))
-```
-
 Before joining these tables, we are going to compute a summarized version of the fielding data. 
 
 The `pivot_wider()` function changes the setup of the data by increasing the number of columns and decreasing the number of rows. This is in the **tidyr** package, which is part of the **tidyverse**.
@@ -134,7 +123,6 @@ fielding21_wide <- fielding21 %>%
             Inn_P = sum(P), 
             .by = c(playerID, yearID, stint, teamID))
 ```
-**NOTE:** InnOuts is the number of outs 
 
 
 ```{r, echo=FALSE}
@@ -144,9 +132,6 @@ fielding21_wide %>%
   kable_styling("striped")
 ```
 This data frame has `r dim(fielding21_wide)[2]` variables and `r dim(fielding21_wide)[1]` observations.
-
-
-**NOTE:** still have to do the part about figuring out a players primary position
 
 Now we are ready to practice some joins!
 
@@ -291,18 +276,6 @@ Here's a graph created from the joined data.
 library(ggplot2)
 ```
 
-```{r, fig.align='center', fig.width=7, include=FALSE}
-join_all_keys %>% 
-  ggplot(aes(x = IPouts, y = salary, fill = IPouts)) +
-  geom_col() +
-  labs(x = "Outs Pitched", y = "Salary") +
-  scale_fill_viridis_c() +
-  scale_y_continuous(labels = scales::label_dollar()) +
-  theme_bw() +
-  theme(legend.position = "none")
-```
-
-
 ```{r, fig.align='center', fig.width=7, echo=FALSE, message=FALSE, warning=FALSE}
 join_all_keys %>% 
   ggplot(aes(x = IPouts, y = salary, color = IPouts)) +
@@ -313,7 +286,8 @@ join_all_keys %>%
   scale_color_viridis_c() +
   scale_y_continuous(labels = scales::label_dollar()) +
   theme_bw() +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  theme(text = element_text(family = "serif"))
 ```
 
 

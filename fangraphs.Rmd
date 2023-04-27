@@ -71,11 +71,12 @@ fg_update <- fg_update %>%
 ```{r, fig.align='center', echo=FALSE}
 fg_update %>% 
   ggplot(aes(x = BB_rate, y = K_rate, label = Team, fill = WAR)) + 
-  geom_label(alpha = 0.6, size = 3) +
+  geom_label(alpha = 0.6, size = 3, family = "serif") +
   labs(title = "K% and BB% For Each MLB Team", 
        x = "Walk Rate(%)", y = "Strikeout Rate(%)") +
   scale_fill_viridis_c() +
-  theme_bw()
+  theme_bw() +
+  theme(text = element_text(family = "serif"))
 ```
 
 Following the same process as before, I got the 2022 Pitching Leaders. Without changing any settings on FanGraphs, the data frame downloaded has 22 variables and 45 observations.  
@@ -85,14 +86,11 @@ fg_pitch_leaders <- read_csv("fg_pitch_leaders.csv")
 ```
 
 ```{r, echo=FALSE}
-# row.names(fg_download) <- fg_download$Team
 fg_pitch_leaders %>% 
   kable() %>% 
   kable_styling("striped") %>% 
   scroll_box(width = "100%", height = "300px")
 ```
-
-**NOTE:** there is something weird going on with Jordan Montgomery
 
 Again, there are variable names with strange characters in them and this is a fairly small dataset. Next we will try accessing leaderboard data, but this time using the **baseballr** package.
 
@@ -138,7 +136,8 @@ judge_filtered %>%
   labs(title = "Aaron Judge Batting", 
        x = "Exit Velocity", y = "Launch Angle", color = "RBI") +
   scale_color_viridis_d() +
-  theme_bw()
+  theme_bw() +
+  theme(text = element_text(family = "serif"))
 ```
 
 
@@ -166,15 +165,13 @@ pl_filtered %>%
               position=position_jitter(0.2)) +
   labs(title = "Pitchers", x = "Season") +
   scale_color_viridis_b() +
-  theme_bw()
+  theme_bw() +
+  theme(text = element_text(family = "serif"))
 ```
 
 
 Accessing data from baseballr gives over double the amount of observations and hundreds of more variables.  
 
 There are also FanGraphs functions that can scrape [park factors](https://billpetti.github.io/baseballr/reference/fg_park.html).
-
-
-PROS AND CONS - I'm not sure that there's a way to cleanly format it to make a pros and cons table. Should we still put some or just not do this part?
 
 
