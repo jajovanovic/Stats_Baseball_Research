@@ -19,7 +19,7 @@ font-family: 'Source Sans Pro', sans-serif;
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r, message=FALSE, warning=FALSE}
+```{r, message=FALSE, warning=FALSE, include=FALSE}
 library(tidyverse)
 library(Lahman)
 library(knitr)
@@ -29,16 +29,12 @@ library(kableExtra)
 ## Simple Linear Regression 
 
 ### Predicting Winning Percentage
-(pg 95 of _Analyzing Baseball Data with R_)
 
-For this section we will be using the `Teams` table. 
+For this section we will be using the `Teams` table.
 
 ```{r}
 team_pred <- Teams %>%
   filter(yearID >= 2012, yearID < 2020)
-
-# team_pred <- Teams %>% 
-#   filter(yearID >= 2012, yearID !=2020)
 ```
 
 Say we want to predict winning percentage **using a team's run differential**. To do this we need to create two new variables: run differential (RD) and winning percentage (WPCT). Run differential is calculated with runs scored (R) and **runs allowed** (RA). **Calculating** winning percentage **requires** the amount of wins and losses. 
@@ -106,7 +102,7 @@ team_pred %>%
 
 We are going to predict runs using singles, doubles, triples, homeruns, walks, hit-by-pitches, strikeouts, non-strikeouts, stolen bases,caught stealing, and sacrifice flies. 
 
-
+First, we need to create a variable for singles ('X1B') and a variable for non-strikeouts ('nonSO').
 ```{r}
 team_pred <- team_pred %>% 
   mutate(X1B = H - X2B - X3B - HR,
@@ -115,7 +111,6 @@ team_pred <- team_pred %>%
 
 ```{r}
 model2 <- lm(R ~ X1B + X2B + X3B + HR + BB + HBP + SO + nonSO + SB + CS + SF, data = team_pred)
-model2
 summary(model2)
 ```
 
@@ -133,8 +128,10 @@ This model's p-value is 2.2e-16, which is incredibly small. The R-squared value 
 Here is a table of the of each MLR variable and their slope:
 
 ```{r}
-kable(model2$coefficients, col.names = "Coefficient") %>% kable_styling("striped")
+kable(model2$coefficients, col.names = "Coefficient") %>% kable_styling("striped", full_width = FALSE)
 ```
+
+The coefficient for stolen bases is 0.1945. This means that a team will score 0.1945 runs for every base they steal, given that all other variables remain constant. A coefficient of -0.5191 for caught stealing is saying that the number of runs will decrease by -0.5191 for every time the team is caught stealing. 
 
 
 ```{r, include=FALSE}
@@ -169,9 +166,10 @@ team_pred %>%
   theme_bw()
 ```
 
+The points stay close to the line, which indicates that the model fits the data very well. This supports the same conclusion as the R-squared value. 
 
-Residual Plot:
-```{r, fig.align='center', fig.width=7, message=FALSE, warning=FALSE}
+
+```{r, fig.align='center', fig.width=7, message=FALSE, warning=FALSE, include=FALSE}
 model2 %>% 
   ggplot(aes(x = .fitted, y = .resid)) +
   geom_point() +
